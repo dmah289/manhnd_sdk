@@ -4,7 +4,11 @@ using manhnd_sdk.Scripts.Optimization.ConstantKey;
 
 namespace manhnd_sdk.Scripts.SystemDesign.EventBus
 {
-    
+    public interface IEventBusListener
+    {
+        public void RegisterCallbacks();
+        public void DeregisterCallbacks();
+    }
     public static class EventBus<T> where T : IEventDTO
     {
         private static readonly IEventBinding<T> Binding = new EventBinding<T>();
