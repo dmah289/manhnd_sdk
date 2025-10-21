@@ -2,14 +2,8 @@
 
 namespace manhnd_sdk.Scripts.SystemDesign.DependencyInjection
 {
-    public interface IDependencyProvider
-    {
-        
-    }
+    public interface IDependencyProvider { }
     
     [AttributeUsage(AttributeTargets.Method)]
-    public sealed class ProvideAttribute : Attribute
-    {
-        public ProvideAttribute() {}
-    }
+    public sealed class ProvideAttribute : Attribute { }
 }

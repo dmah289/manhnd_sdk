@@ -6,14 +6,13 @@ using UnityEngine;
 
 namespace manhnd_sdk.Scripts.SystemDesign.DependencyInjection
 {
-    // Only 1 injector
+    [DefaultExecutionOrder(-10000)]
     public class DependencyInjector : MonoBehaviour
     {
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
         private readonly Dictionary<Type, object> registry = new();
 
-        // [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private void Awake()
         {
             var providers = FindAllMonoBehaviours().OfType<IDependencyProvider>();

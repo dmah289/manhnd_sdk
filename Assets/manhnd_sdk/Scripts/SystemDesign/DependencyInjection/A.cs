@@ -6,17 +6,12 @@ namespace manhnd_sdk.Scripts.SystemDesign.DependencyInjection
     public class A : MonoBehaviour
     {
         [Inject] ServiceA _serviceA;
-        
-        
-        public void SetServiceA(ServiceA serviceA)
-        {
-            _serviceA = serviceA;
-            _serviceA.Init();
-        }
+        [Inject] EnvironmentSystem _environmentSystem;
 
         private void OnEnable()
         {
             _serviceA.Init();
+            _environmentSystem.Init();
         }
     }
 }
