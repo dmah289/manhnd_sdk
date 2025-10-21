@@ -9,7 +9,7 @@ namespace manhnd_sdk.Scripts.SystemDesign.EventBus
         void Remove(Action onEventWithoutArgs);
         void Add(Action<T> onEventWithArgs);
         void Remove(Action<T> onEventWithArgs);
-        void RaiseWithData(IEventDTO value);
+        void Raise(T value);
         void Raise();
         void Clear();
     }
@@ -34,7 +34,7 @@ namespace manhnd_sdk.Scripts.SystemDesign.EventBus
         public void Raise()
             => OnEventWithoutArgs?.Invoke();
 
-        public void RaiseWithData(IEventDTO value)
+        public void Raise(T value)
         {
             if(value is T dto) OnEventWithArgs?.Invoke(dto);
         }

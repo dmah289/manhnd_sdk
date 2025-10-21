@@ -9,36 +9,96 @@ namespace manhnd_sdk.Scripts.SystemDesign.DependencyInjection
     // Only 1 injector
     public class DependencyInjector : MonoBehaviour
     {
-        private DependencyInjector Instance;
-        
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
         private readonly Dictionary<Type, object> registry = new();
 
+        // [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private void Awake()
         {
-            Instance = this;
-
-            var providers = FindAllMonoBehavioursInScene().OfType<IDependencyProvider>();
+            var providers = FindAllMonoBehaviours().OfType<IDependencyProvider>();
             foreach (var provider in providers)
             {
                 RegisterProvider(provider);
             }
+            
+            var injectables = FindAllMonoBehaviours().Where(IsInjectable);
+            foreach (var injectable in injectables)
+            {
+                HandleInjecting(injectable);
+            }
         }
+
+        #region Handle Injecting
+        private bool IsInjectable(MonoBehaviour instance)
+        {
+            MemberInfo[] members = instance.GetType().GetMembers(Flags);
+            return members.Any(m => Attribute.IsDefined(m, typeof(InjectAttribute)));
+        }
+
+        public object Resolve(Type type)
+        {
+            registry.TryGetValue(type, out var resolvedInstance);
+            return resolvedInstance;
+        }
+
+        public void HandleInjecting(MonoBehaviour instance)
+        {
+            Type type = instance.GetType();
+            
+            HandleInjectFields(instance, type);
+            HandleInjectMethods(instance, type);
+        }
+
+        private void HandleInjectFields(MonoBehaviour instance, Type type)
+        {
+            var injectableFields = type.GetFields(Flags).Where( m => Attribute.IsDefined(m, typeof(InjectAttribute)));
+
+            foreach (var injectableField in injectableFields)
+            {
+                object resolvedInstance = Resolve(injectableField.FieldType);
+                if (resolvedInstance == null)
+                    throw new Exception($"No registered dependency for type {injectableField.FieldType.Name} found for injection into field {injectableField.Name} of {type.Name}.");
+                
+                injectableField.SetValue(instance, resolvedInstance);
+            }
+        }
+        
+        private void HandleInjectMethods(MonoBehaviour instance, Type type)
+        {
+            var injectableMethods = type.GetMethods(Flags).Where( m => Attribute.IsDefined(m, typeof(InjectAttribute)));
+
+            foreach (MethodInfo injectableMethod in injectableMethods)
+            {
+                Type[] requiredParameters = injectableMethod.GetParameters()
+                    .Select(p => p.ParameterType)
+                    .ToArray();
+
+                object[] resolvedInstances = requiredParameters.Select(Resolve).ToArray();
+
+                if (resolvedInstances.Any(resolvedInstance => resolvedInstance == null))
+                {
+                    throw new Exception($"Failed to inject {type.Name}.{injectableMethod.Name}");
+                }
+                
+                injectableMethod.Invoke(instance, resolvedInstances);
+            }
+        }
+        #endregion
+
+        #region Handle Registering
+
+        private MonoBehaviour[] FindAllMonoBehaviours()
+            => FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.InstanceID);
 
         private void RegisterProvider(IDependencyProvider provider)
         {
             var methods = provider.GetType().GetMethods(Flags)
                 .Where(m => m.GetCustomAttribute<ProvideAttribute>() != null);
 
-            foreach (var method in methods)
+            foreach (MethodInfo method in methods)
             {
-                var returnType = method.ReturnType;
-                if (returnType == typeof(void))
-                {
-                    Debug.LogWarning($"Provider method {method.Name} in {provider.GetType().Name} has void return type. Skipping.");
-                    continue;
-                }
+                Type returnType = method.ReturnType;
 
                 if (registry.ContainsKey(returnType))
                 {
@@ -46,12 +106,8 @@ namespace manhnd_sdk.Scripts.SystemDesign.DependencyInjection
                     continue;
                 }
 
-                var providedInstance = method.Invoke(provider, null);
-                if (providedInstance != null)
-                {
-                    registry[returnType] = providedInstance;
-                    Debug.Log($"Registered dependency of type {returnType.Name} from {provider.GetType().Name}.{method.Name}");
-                }
+                object providedInstance = method.Invoke(provider, null);
+                if (providedInstance != null) registry[returnType] = providedInstance;
                 else
                 {
                     Debug.LogWarning($"Provider method {method.Name} in {provider.GetType().Name} returned null. Skipping.");
@@ -59,11 +115,6 @@ namespace manhnd_sdk.Scripts.SystemDesign.DependencyInjection
             }
         }
 
-        static MonoBehaviour[] FindAllMonoBehavioursInScene()
-        {
-            return FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.InstanceID);
-        }
-
-        
+        #endregion
     }
 }

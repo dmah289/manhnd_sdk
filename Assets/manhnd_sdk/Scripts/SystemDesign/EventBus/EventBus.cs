@@ -9,6 +9,7 @@ namespace manhnd_sdk.Scripts.SystemDesign.EventBus
         public void RegisterCallbacks();
         public void DeregisterCallbacks();
     }
+    
     public static class EventBus<T> where T : IEventDTO
     {
         private static readonly IEventBinding<T> Binding = new EventBinding<T>();
@@ -31,15 +32,15 @@ namespace manhnd_sdk.Scripts.SystemDesign.EventBus
                 Binding.Remove(onEventWithoutArgs);
         }
         
-        public static void RaiseWithData(IEventDTO eventDTO)
-            => Binding.RaiseWithData(eventDTO);
+        public static void Raise(T t)
+            => Binding.Raise(t);
         
         public static void Raise()
-            => Binding.Raise();
+            => Binding.Raise(); 
 
-        public static void RaiseAll(IEventDTO eventDTO)
+        public static void RaiseAll(T t)
         {
-            Binding.RaiseWithData(eventDTO);
+            Binding.Raise(t);
             Binding.Raise();
         }
     }

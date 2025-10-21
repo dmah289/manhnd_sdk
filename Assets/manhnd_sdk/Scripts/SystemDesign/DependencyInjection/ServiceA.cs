@@ -12,12 +12,9 @@ namespace manhnd_sdk.Scripts.SystemDesign.DependencyInjection
 
     public class FactoryA
     {
-        ServiceA serviceA;
-        
-        public ServiceA CreateServiceA()
+        public void Init()
         {
-            if(serviceA == null) serviceA = new ServiceA();
-            return serviceA;
+            Debug.Log("FactoryA Init");
         }
     }
 }

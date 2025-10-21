@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace manhnd_sdk.Scripts.SystemDesign.DependencyInjection
 {
@@ -13,6 +14,11 @@ namespace manhnd_sdk.Scripts.SystemDesign.DependencyInjection
         public void SetFactoryA(FactoryA factoryA)
         {
             _factoryA = factoryA;
+        }
+
+        private void OnEnable()
+        {
+            _factoryA.Init();
         }
     }
 }
