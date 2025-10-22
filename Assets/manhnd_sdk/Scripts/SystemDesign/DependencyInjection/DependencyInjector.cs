@@ -106,11 +106,10 @@ namespace manhnd_sdk.Scripts.SystemDesign.DependencyInjection
                 }
 
                 object providedInstance = method.Invoke(provider, null);
-                if (providedInstance != null) registry[returnType] = providedInstance;
+                if (providedInstance != null) 
+                    registry[returnType] = providedInstance;
                 else
-                {
-                    Debug.LogWarning($"Provider method {method.Name} in {provider.GetType().Name} returned null. Skipping.");
-                }
+                    Debug.LogWarning($"Provider method {method.Name} in {provider.GetType().Name} returned null");
             }
         }
 
