@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using manhnd_sdk.Scripts.Optimization.PoolingSystem;
+using UnityEngine;
 
-namespace manhnd_sdk.Scripts.Optimization.ConstantKey
+namespace manhnd_sdk.Scripts.ConstantKeyNamespace
 {
     public static partial class ConstantKey
     {

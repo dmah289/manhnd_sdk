@@ -3,6 +3,7 @@
 namespace manhnd_sdk.Scripts.SystemDesign.EventBus
 {
     public interface IEventDTO { }
+    
     public interface IEventBinding<T> where T : IEventDTO
     {
         void Add(Action onEventWithoutArgs);
@@ -34,10 +35,8 @@ namespace manhnd_sdk.Scripts.SystemDesign.EventBus
         public void Raise()
             => OnEventWithoutArgs?.Invoke();
 
-        public void Raise(T value)
-        {
-            if(value is T dto) OnEventWithArgs?.Invoke(dto);
-        }
+        public void Raise(T dto)
+            => OnEventWithArgs?.Invoke(dto);
         
         public void Clear()
         {

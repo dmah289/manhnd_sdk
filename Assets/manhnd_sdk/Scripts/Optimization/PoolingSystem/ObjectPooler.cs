@@ -4,31 +4,38 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using manhnd_sdk.Scripts.ConstantKeyNamespace;
 
 namespace manhnd_sdk.Scripts.Optimization.PoolingSystem
 {
     public static class ObjectPooler
     {
-        private static List<Component>[] poolLists = new List<Component>[ConstantKey.ConstantKey.POOL_AMOUNT];
-        private static Component[] prefabCache = new Component[ConstantKey.ConstantKey.POOL_AMOUNT];
+        private static List<Component>[] poolLists = new List<Component>[ConstantKey.POOL_AMOUNT];
+        private static Component[] prefabCache = new Component[ConstantKey.POOL_AMOUNT];
 
         private static readonly Transform gameplayPoolParent =
-            GameObject.FindGameObjectWithTag(ConstantKey.ConstantKey.GAMEPLAY_POOL_PARENT_TAG).transform;
+            GameObject.FindGameObjectWithTag(ConstantKey.GAMEPLAY_POOL_PARENT_TAG).transform;
         private static readonly Transform uiPoolParent =
-            GameObject.FindGameObjectWithTag(ConstantKey.ConstantKey.UI_POOL_PARENT_TAG).transform;
+            GameObject.FindGameObjectWithTag(ConstantKey.UI_POOL_PARENT_TAG).transform;
         
+        /// <summary>
+        /// Check addressable key for prefab and cache prefab, then create pool for type
+        /// </summary>
+        /// <param name="type">The enum value index-based mapping to the pool list</param>
+        /// <typeparam name="T">Type of the object need pooling</typeparam>
+        /// <exception cref="KeyNotFoundException">No addressable key found for pooling type</exception>
         private static async UniTask CreatePool<T>(PoolingType type, CancellationToken cancellationToken) where T : Component
         {
             Debug.LogError("Creating pool for type: " + type);
-            if(!ConstantKey.ConstantKey.ADRESSABLE_POOLING_KEY.ContainsKey(type) || string.IsNullOrEmpty(ConstantKey.ConstantKey.ADRESSABLE_POOLING_KEY[type]))
+            if(!ConstantKey.ADRESSABLE_POOLING_KEY.ContainsKey(type) || string.IsNullOrEmpty(ConstantKey.ADRESSABLE_POOLING_KEY[type]))
                 throw new KeyNotFoundException($"No addressable key found for pooling type: {type}");
             
-			GameObject go = await Addressables.LoadAssetAsync<GameObject>(ConstantKey.ConstantKey.ADRESSABLE_POOLING_KEY[type])
+			GameObject go = await Addressables.LoadAssetAsync<GameObject>(ConstantKey.ADRESSABLE_POOLING_KEY[type])
                 			.ToUniTask(cancellationToken: cancellationToken);
             T prefab = go.GetComponent<T>();
             prefabCache[(byte)type] = prefab;
             
-            int size = ConstantKey.ConstantKey.INITIAL_POOL_SIZE;
+            int size = ConstantKey.INITIAL_POOL_SIZE;
             poolLists[(byte)type] = new List<Component>(size);
             for (int i = 0; i < size; i++)
             {
@@ -92,7 +99,7 @@ namespace manhnd_sdk.Scripts.Optimization.PoolingSystem
         /// </summary>
         /// <param name="type">The enum value index-based mapping to the pool list</param>
         /// <param name="instance">Instance that need returning to pool</param>
-        /// <param name="allowChecking">Allow checking if the object returned to pool has the same type with objects in respectively pool</param>
+        /// <param name="allowChecking">Allow checking if the object returned to pool has the same type with cached prefab</param>
         /// <typeparam name="T">Type of the object need returning to pool</typeparam>
         /// <exception cref="InvalidCastException">Throw if instance doesn't have the same type with objects in respectively pool</exception>
         public static void ReturnToPool<T>(PoolingType type, T instance, CancellationToken cancellationToken, bool allowChecking = false) where T : Component
@@ -107,7 +114,7 @@ namespace manhnd_sdk.Scripts.Optimization.PoolingSystem
                     throw new InvalidCastException($"Type {typeof(T)} mismatch with pooled type {prefabType.Name}");
             }
             
-            if (poolLists[(byte)type].Count >= ConstantKey.ConstantKey.MAX_POOL_SIZE)
+            if (poolLists[(byte)type].Count >= ConstantKey.MAX_POOL_SIZE)
             {
                 GameObject.Destroy(instance.gameObject);
                 return;
@@ -118,7 +125,10 @@ namespace manhnd_sdk.Scripts.Optimization.PoolingSystem
             poolLists[(byte)type].Add(instance);
         }
         
-        private static void CleanupSinglePool(PoolingType type, CancellationToken cancellationToken)
+        /// <summary>
+        /// Cleanup single pool and release respectively addressable asset
+        /// </summary>
+        public static void CleanupSinglePool(PoolingType type, CancellationToken cancellationToken)
         {
             if (poolLists[(byte)type] == null)
                 return;
@@ -140,6 +150,9 @@ namespace manhnd_sdk.Scripts.Optimization.PoolingSystem
             }
         }
 
+        /// <summary>
+        /// Cleanup all pools and release all addressable assets
+        /// </summary>
         public static void Dispose(CancellationToken cancellationToken)
         {
             for (int i = 0; i < poolLists.Length; i++)

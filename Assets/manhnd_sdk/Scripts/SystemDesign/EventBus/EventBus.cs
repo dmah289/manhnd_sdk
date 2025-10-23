@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using manhnd_sdk.Scripts.Optimization.ConstantKey;
 
 namespace manhnd_sdk.Scripts.SystemDesign.EventBus
 {
@@ -14,6 +13,9 @@ namespace manhnd_sdk.Scripts.SystemDesign.EventBus
     {
         private static readonly IEventBinding<T> Binding = new EventBinding<T>();
 
+        /// <summary>
+        /// Register event listeners
+        /// </summary>
         public static void Register(Action onEventWithoutArgs = null,
                                     Action<T> onEventWithArgs = null)
         {
@@ -23,6 +25,9 @@ namespace manhnd_sdk.Scripts.SystemDesign.EventBus
                 Binding.Add(onEventWithArgs);
         }
         
+        /// <summary>
+        /// Deregister event listeners
+        /// </summary>
         public static void Deregister(Action onEventWithoutArgs = null,
                                       Action<T> onEventWithArgs = null)
         {
@@ -32,16 +37,31 @@ namespace manhnd_sdk.Scripts.SystemDesign.EventBus
                 Binding.Remove(onEventWithoutArgs);
         }
         
-        public static void Raise(T t)
-            => Binding.Raise(t);
+        /// <summary>
+        /// Raise event with args
+        /// </summary>
+        public static void Raise(T eventDTO)
+            => Binding.Raise(eventDTO);
         
+        /// <summary>
+        /// Raise event without args
+        /// </summary>
         public static void Raise()
             => Binding.Raise(); 
 
-        public static void RaiseAll(T t)
+        /// <summary>
+        /// Raise both event with args and without args
+        /// </summary>
+        public static void RaiseBoth(T eventDto)
         {
-            Binding.Raise(t);
+            Binding.Raise(eventDto);
             Binding.Raise();
         }
+        
+        /// <summary>
+        /// Clear all registered listeners
+        /// </summary>
+        public static void Clear()
+            => Binding.Clear();
     }
 }
