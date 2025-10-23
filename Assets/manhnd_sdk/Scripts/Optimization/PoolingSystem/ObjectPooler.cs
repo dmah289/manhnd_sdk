@@ -7,6 +7,18 @@ using UnityEngine.AddressableAssets;
 
 namespace manhnd_sdk.Scripts.Optimization.PoolingSystem
 {
+    public readonly struct MustAwait<T>
+    {
+        private readonly UniTask<T> inner;
+        
+        public MustAwait(UniTask<T> inner)
+        {
+            this.inner = inner;
+        }
+        
+        public UniTask<T>.Awaiter GetAwaiter() => inner.GetAwaiter();
+    }
+    
     public static class ObjectPooler
     {
         private static List<Component>[] poolLists = new List<Component>[ConstantKey.ConstantKey.POOL_AMOUNT];
@@ -37,8 +49,16 @@ namespace manhnd_sdk.Scripts.Optimization.PoolingSystem
             }
         }
 
-        // WARNING : Call in async method and .Forget() to avoid conflict during pool creation
-        public static async UniTask<T> GetFromPool<T>(PoolingType type,
+        // Public API: no UniTask here, so no .Forget() available
+        public static MustAwait<T> GetFromPool<T>(PoolingType type,
+            CancellationToken cancellationToken,
+            Transform parent = null,
+            System.Action<T> onGetObject = null,
+            bool allowChecking = false) where T : Component
+            => new (GetFromPoolImpl(type, cancellationToken, parent, onGetObject, allowChecking));
+        
+        // WARNING : Call in async method and .Forget() that method to avoid conflict during pool creation
+        private static async UniTask<T> GetFromPoolImpl<T>(PoolingType type,
                                                     CancellationToken cancellationToken,
                                                     Transform parent = null,
                                                     Action<T> onGetObject = null,
