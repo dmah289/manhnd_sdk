@@ -7,18 +7,6 @@ using UnityEngine.AddressableAssets;
 
 namespace manhnd_sdk.Scripts.Optimization.PoolingSystem
 {
-    public readonly struct MustAwait<T>
-    {
-        private readonly UniTask<T> inner;
-        
-        public MustAwait(UniTask<T> inner)
-        {
-            this.inner = inner;
-        }
-        
-        public UniTask<T>.Awaiter GetAwaiter() => inner.GetAwaiter();
-    }
-    
     public static class ObjectPooler
     {
         private static List<Component>[] poolLists = new List<Component>[ConstantKey.ConstantKey.POOL_AMOUNT];
@@ -48,17 +36,20 @@ namespace manhnd_sdk.Scripts.Optimization.PoolingSystem
                 ReturnToPool(type, instance, cancellationToken);
             }
         }
-
-        // Public API: no UniTask here, so no .Forget() available
-        public static MustAwait<T> GetFromPool<T>(PoolingType type,
-            CancellationToken cancellationToken,
-            Transform parent = null,
-            System.Action<T> onGetObject = null,
-            bool allowChecking = false) where T : Component
-            => new (GetFromPoolImpl(type, cancellationToken, parent, onGetObject, allowChecking));
         
-        // WARNING : Call in async method and .Forget() that method to avoid conflict during pool creation
-        private static async UniTask<T> GetFromPoolImpl<T>(PoolingType type,
+        /// <summary>
+        /// WARNING : Call in async method and .Forget() that method to avoid conflict during pool creation
+        /// <br></br>
+        /// Create pool if not created yet and get object from pool by type (create new object if pool is empty)
+        /// </summary>
+        /// <param name="type">The enum value index-based mapping to the pool list</param>
+        /// <param name="parent">The returned object's parent</param>
+        /// <param name="onGetObject">Callback when the object is returned</param>
+        /// <param name="allowChecking">Allow checking if the returned object has the same type with generics type</param>
+        /// <typeparam name="T">Type of the object need pooling</typeparam>
+        /// <returns>Object with mapped type</returns>
+        /// <exception cref="InvalidCastException">The returned object doesn't have T component</exception>
+        public static async UniTask<T> GetFromPool<T>(PoolingType type,
                                                     CancellationToken cancellationToken,
                                                     Transform parent = null,
                                                     Action<T> onGetObject = null,
@@ -96,6 +87,14 @@ namespace manhnd_sdk.Scripts.Optimization.PoolingSystem
             return instance;
         }
         
+        /// <summary>
+        /// Return object to pool by type (index-based mapping)
+        /// </summary>
+        /// <param name="type">The enum value index-based mapping to the pool list</param>
+        /// <param name="instance">Instance that need returning to pool</param>
+        /// <param name="allowChecking">Allow checking if the object returned to pool has the same type with objects in respectively pool</param>
+        /// <typeparam name="T">Type of the object need returning to pool</typeparam>
+        /// <exception cref="InvalidCastException">Throw if instance doesn't have the same type with objects in respectively pool</exception>
         public static void ReturnToPool<T>(PoolingType type, T instance, CancellationToken cancellationToken, bool allowChecking = false) where T : Component
         {
             if(instance == null)
