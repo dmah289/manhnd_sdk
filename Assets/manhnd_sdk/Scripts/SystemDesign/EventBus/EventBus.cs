@@ -3,18 +3,16 @@ using System.Collections.Generic;
 
 namespace manhnd_sdk.Scripts.SystemDesign.EventBus
 {
-    public interface IEventBusListener
-    {
-        public void RegisterCallbacks();
-        public void DeregisterCallbacks();
-    }
-    
+    /// <summary>
+    /// Create a concrete event "thread" respectively to data transfer object type
+    /// </summary>
+    /// <typeparam name="T">Data transfer object for this "thread"</typeparam>
     public static class EventBus<T> where T : IEventDTO
     {
         private static readonly IEventBinding<T> Binding = new EventBinding<T>();
 
         /// <summary>
-        /// Register event listeners
+        /// Event listeners register
         /// </summary>
         public static void Register(Action onEventWithoutArgs = null,
                                     Action<T> onEventWithArgs = null)
@@ -26,7 +24,7 @@ namespace manhnd_sdk.Scripts.SystemDesign.EventBus
         }
         
         /// <summary>
-        /// Deregister event listeners
+        /// Event listeners deregister
         /// </summary>
         public static void Deregister(Action onEventWithoutArgs = null,
                                       Action<T> onEventWithArgs = null)
@@ -38,13 +36,13 @@ namespace manhnd_sdk.Scripts.SystemDesign.EventBus
         }
         
         /// <summary>
-        /// Raise event with args
+        /// Subject raise event with args
         /// </summary>
         public static void Raise(T eventDTO)
             => Binding.Raise(eventDTO);
         
         /// <summary>
-        /// Raise event without args
+        /// Subject raise event without args
         /// </summary>
         public static void Raise()
             => Binding.Raise(); 

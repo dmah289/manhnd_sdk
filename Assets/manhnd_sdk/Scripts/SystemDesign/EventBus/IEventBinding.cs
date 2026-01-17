@@ -2,8 +2,6 @@
 
 namespace manhnd_sdk.Scripts.SystemDesign.EventBus
 {
-    public interface IEventDTO { }
-    
     public interface IEventBinding<T> where T : IEventDTO
     {
         void Add(Action onEventWithoutArgs);
