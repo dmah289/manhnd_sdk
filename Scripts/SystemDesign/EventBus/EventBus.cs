@@ -1,64 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-
+using System;
 namespace manhnd_sdk.Scripts.SystemDesign.EventBus
 {
-    /// <summary>
-    /// Create a concrete event "thread" respectively to data transfer object type
-    /// </summary>
-    /// <typeparam name="T">Data transfer object for this "thread"</typeparam>
-    public static class EventBus<T> where T : IEventDTO
+    public interface IEventDTO { }
+    
+    public static class EventBus<T> where T : struct, IEventDTO
     {
-        private static readonly IEventBinding<T> Binding = new EventBinding<T>();
+        static readonly EventBinding<T> Binding = new();
 
-        /// <summary>
-        /// Event listeners register
-        /// </summary>
-        public static void Register(Action onEventWithoutArgs = null,
-                                    Action<T> onEventWithArgs = null)
-        {
-            Binding.Add(onEventWithoutArgs);
-            
-            if(onEventWithArgs != null)
-                Binding.Add(onEventWithArgs);
-        }
-        
-        /// <summary>
-        /// Event listeners deregister
-        /// </summary>
-        public static void Deregister(Action onEventWithoutArgs = null,
-                                      Action<T> onEventWithArgs = null)
-        {
-            Binding.Remove(onEventWithArgs);
-            
-            if(onEventWithoutArgs != null)
-                Binding.Remove(onEventWithoutArgs);
-        }
-        
-        /// <summary>
-        /// Subject raise event with args
-        /// </summary>
-        public static void Raise(T eventDTO)
+        // Lower priority values are called first
+        public static void Register(Action<T> callback, int priority = 0)
+            => Binding.AddCallback(callback, priority);
+
+        public static void Deregister(Action<T> callback)
+            => Binding.RemoveCallback(callback);
+
+        public static void Raise(T eventDTO = default)
             => Binding.Raise(eventDTO);
-        
-        /// <summary>
-        /// Subject raise event without args
-        /// </summary>
-        public static void Raise()
-            => Binding.Raise(); 
 
-        /// <summary>
-        /// Raise both event with args and without args
-        /// </summary>
-        public static void RaiseBoth(T eventDto)
-        {
-            Binding.Raise(eventDto);
-            Binding.Raise();
-        }
-        
-        /// <summary>
-        /// Clear all registered listeners
-        /// </summary>
         public static void Clear()
             => Binding.Clear();
     }
