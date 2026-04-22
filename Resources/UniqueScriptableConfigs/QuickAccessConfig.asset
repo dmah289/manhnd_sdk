@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0a5378902844809994dc51314f10667, type: 3}
+  m_Name: QuickAccessConfig
+  m_EditorClassIdentifier: 
+  LoadingSceneName: Testing
+  assetsInFolder:
+  - titleName: Prefabs
+    enableLoadingAssets: 1
+    enableLoadingSubfolders: 1
+    rootFolderReference:
+    - GUID: 55f12c0157ad2e34e9225ab514ba65cc
+    Assets:
+    - {fileID: 3901685873995685092, guid: 193dc9a267ef3b84f9ba1488d77fdc74, type: 3}
+    - {fileID: 3901685873995685092, guid: 48d0de4b8697b814ba228da5e6854f18, type: 3}
+    - {fileID: 7427414836637964619, guid: 230e94b87f3f84143b2b9a0a69ccc4b0, type: 3}
+    SubFolders:
+    - {fileID: 102900000, guid: e6334daa9135fd54fb327b0defffc83f, type: 3}
+    - {fileID: 102900000, guid: 7d6efb7f158b6464c97e57e696b30548, type: 3}
+  - titleName: Materials
+    enableLoadingAssets: 1
+    enableLoadingSubfolders: 1
+    rootFolderReference:
+    - GUID: 9a399a7e266c7874db6866d6ac665a44
+    Assets:
+    - {fileID: 2100000, guid: ee2b3161ca6e78b418538f25d20af912, type: 2}
+    - {fileID: 2100000, guid: ad6158bebadaac04e9320f31e5f6d96a, type: 2}
+    SubFolders: []
+  Assets: []
+  Folders: []
+  CustomAssetRefs:
+  - {fileID: 2100000, guid: ad6158bebadaac04e9320f31e5f6d96a, type: 2}
+  CustomFolderRefs: []

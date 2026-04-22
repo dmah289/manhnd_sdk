@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Sirenix.OdinInspector;
 using UnityEditor;
@@ -12,28 +13,48 @@ namespace manhnd_sdk.Serializables
     public class FolderReference
     {
         [SerializeField] private string GUID;
+        private string name;
+        
+        public string Name => name;
+        
         public string Path
         {
             get => AssetDatabase.GUIDToAssetPath(GUID);
-            set => GUID = AssetDatabase.AssetPathToGUID(value);
+            set
+            {
+                GUID = AssetDatabase.AssetPathToGUID(value);
+                name = System.IO.Path.GetFileName(value);
+            }
         }
 
         public bool IsValid => !string.IsNullOrEmpty(GUID) && AssetDatabase.IsValidFolder(Path);
 
         public FolderReference(string path) => Path = path;
 
-        public T[] LoadAll<T>() where T : Object
+        public T[] LoadAssets<T>() where T : Object
         {
-            if (!IsValid) 
+            if (!IsValid)
                 return Array.Empty<T>();
-            
+
             var guids = AssetDatabase.FindAssets($"t:{typeof(T).Name}", new[] { Path });
-            
-            var results = new T[guids.Length];
+
+            List<T> results = new();
             for (int i = 0; i < guids.Length; i++)
-                results[i] = AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(guids[i]));
-            
-            return results;
+            {
+                if (!AssetDatabase.IsValidFolder(AssetDatabase.GUIDToAssetPath(guids[i])))
+                    results.Add(AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(guids[i])));
+            }
+
+            return results.ToArray();
+        }
+
+        public Object[] GetSubFolders()
+        {
+            string[] paths = AssetDatabase.GetSubFolders(Path);
+            var folders = new Object[paths.Length];
+            for (int i = 0; i < paths.Length; i++)
+                folders[i] = AssetDatabase.LoadAssetAtPath<Object>(paths[i]);
+            return folders;
         }
     }
 
