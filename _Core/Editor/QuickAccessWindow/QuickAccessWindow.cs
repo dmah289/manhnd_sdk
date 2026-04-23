@@ -36,7 +36,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
 
         #region Menu Item
         
-        [MenuItem("manhnd_sdk/Window/Quick Access/Show Window")]
+        [MenuItem("manhnd_sdk/Window/Quick Access")]
         private static void ShowWindow()
         {
             var window = GetWindow<QuickAccessWindow>();
@@ -172,14 +172,14 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
                 }
             }
 
-            if(config.CustomAssetRefs.Count > 0)
+            if(config.CustomAssetRefs != null && config.CustomAssetRefs.Count > 0)
             {
                 GUILayout.Label("Custom Asset Refs", _titleStyle);
                 for (int i = 0; i < config.CustomAssetRefs.Count; i++)
                     DrawAssetButton(config.CustomAssetRefs[i], true);
             }
 
-            if(config.CustomFolderRefs.Count > 0)
+            if (config.CustomFolderRefs != null && config.CustomFolderRefs.Count > 0)
             {
                 GUILayout.Label("Custom Folder Refs", _titleStyle);
                 for (int i = 0; i < config.CustomFolderRefs.Count; i++)

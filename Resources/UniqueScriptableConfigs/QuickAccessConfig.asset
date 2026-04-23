@@ -12,19 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c0a5378902844809994dc51314f10667, type: 3}
   m_Name: QuickAccessConfig
   m_EditorClassIdentifier: 
-  LoadingSceneName: Testing
-  assetsInFolder:
-  - titleName: Prefabs
-    enableLoadingAssets: 1
-    enableLoadingSubfolders: 1
-    rootFolderReference:
-    - GUID: 55f12c0157ad2e34e9225ab514ba65cc
-    Assets:
-    - {fileID: 3901685873995685092, guid: 193dc9a267ef3b84f9ba1488d77fdc74, type: 3}
-    - {fileID: 3901685873995685092, guid: 48d0de4b8697b814ba228da5e6854f18, type: 3}
-    - {fileID: 7427414836637964619, guid: 230e94b87f3f84143b2b9a0a69ccc4b0, type: 3}
-    SubFolders:
-    - {fileID: 102900000, guid: e6334daa9135fd54fb327b0defffc83f, type: 3}
-    - {fileID: 102900000, guid: 7d6efb7f158b6464c97e57e696b30548, type: 3}
+  LoadingSceneName: 
+  assetsInFolder: []
   CustomAssetRefs: []
   CustomFolderRefs: []
