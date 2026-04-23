@@ -1,14 +1,8 @@
-#if UNITY_EDITOR
-
 using System;
-using System.IO;
-using manhnd_sdk.Serializables;
 using UnityEditor;
-using UnityEditor.Localization.Plugins.XLIFF.V20;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
 namespace manhnd_sdk.Modules.QuickAccessWindow
@@ -16,7 +10,11 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
     public class QuickAccessWindow : EditorWindow
     {
         private static GUIStyle _titleStyle;
-        private static GUIStyle _buttonStyle;
+        private static GUIStyle _normalButtonStyle;
+        private static GUIStyle _flexibleBtnStyle;
+        
+        private static Color flexibleBtnColor = new (80/255f, 1f, 100/255f, 1f);
+        private static Color dangerBtnColor = new (1f, 50/255f, 50/255f, 1f);
         
         private Vector2 _scrollPosition;
         
@@ -45,12 +43,6 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             window.titleContent = new GUIContent("Quick Access");
             window.Show();
         }
-
-        [MenuItem("manhnd_sdk/Window/Quick Access/Create or Ping Config")]
-        private static void PingOrCreateQuickAccessConfig()
-        {
-            EditorGUIUtility.PingObject(QuickAccessConfig.Instance);
-        }
         
         #endregion
 
@@ -73,13 +65,21 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         {
             HandleDragAndDropCustomReferences();
             
-            _buttonStyle = new GUIStyle(GUI.skin.button) { alignment = TextAnchor.MiddleLeft };
+            if(_normalButtonStyle == null)
+                _normalButtonStyle = new GUIStyle(GUI.skin.button) { alignment = TextAnchor.MiddleCenter };
+
+            if (_flexibleBtnStyle == null)
+            {
+                _flexibleBtnStyle = new GUIStyle(GUI.skin.button)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontSize = 15
+                };
+            }
             
             HandleMiddleMouseScroll();
             
             HandleScrollView();
-            
-            
         }
 
         #endregion
@@ -116,9 +116,9 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             QuickAccessConfig config = QuickAccessConfig.Instance;
             
             if(AssetDatabase.IsValidFolder(path))
-                config.CustomFolderRefs.Add(reference);
-            else 
-                config.CustomAssetRefs.Add(reference);
+                config.AddCustomFolderRef(reference);
+            else
+                config.AddCustomAssetRef(reference);
         }
         
         private void HandleMiddleMouseScroll()
@@ -137,10 +137,8 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
 
             DrawContents();
             
-            GUILayout.FlexibleSpace();
-            if(GUILayout.Button("Refresh",GUILayout.Height(50)))
-                Refresh();
-            
+            DrawFlexibleContents();
+
             GUILayout.EndScrollView();
         }
 
@@ -148,7 +146,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         {
             QuickAccessConfig config = QuickAccessConfig.Instance;
             
-            GUILayout.Label("Favorite", _titleStyle);
+            GUILayout.Label("Favourite", _titleStyle);
             if (GUILayout.Button("Play Game"))
                 OpenAndPlayScene(config.LoadingSceneName);
             
@@ -189,6 +187,25 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             }
         }
 
+        private void DrawFlexibleContents()
+        {
+            GUILayout.FlexibleSpace();
+
+            if (GUILayout.Button("Quick Access Config", _flexibleBtnStyle, GUILayout.Height(30)))
+            {
+                EditorGUIUtility.PingObject(QuickAccessConfig.Instance);
+                AssetDatabase.OpenAsset(QuickAccessConfig.Instance);
+            }
+            
+            Color originalColor = GUI.backgroundColor;
+            GUI.backgroundColor = flexibleBtnColor;
+            if(GUILayout.Button("Refresh",_flexibleBtnStyle, GUILayout.Height(40)))
+                Refresh();
+            GUI.backgroundColor = originalColor;
+            
+            
+        }
+
         private void OpenAndPlayScene(string targetSceneName)
         {
             bool found = false;
@@ -227,11 +244,14 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             if(GUILayout.Button("Ping", GUILayout.MaxWidth(50)))
                 EditorGUIUtility.PingObject(asset);
             
-            if (GUILayout.Button(asset.name, _buttonStyle, GUILayout.MinWidth(200)))
+            if (GUILayout.Button(asset.name, _normalButtonStyle, GUILayout.MinWidth(150)))
                 AssetDatabase.OpenAsset(asset);
-            
-            if(GUILayout.Button("Remove", GUILayout.MinWidth(60)))
+
+            Color orginalColor = GUI.backgroundColor;
+            GUI.backgroundColor = dangerBtnColor;
+            if(GUILayout.Button("Remove", GUILayout.MinWidth(50), GUILayout.MaxWidth(60)))
                 config.RemoveAssetRef(asset, isCustomRef);
+            GUI.backgroundColor = orginalColor;
             
             GUILayout.EndHorizontal();
         }
@@ -245,11 +265,14 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             
             GUILayout.BeginHorizontal();
             
-            if(GUILayout.Button(folder.name, _buttonStyle, GUILayout.MinWidth(200)))
+            if(GUILayout.Button(folder.name, _normalButtonStyle, GUILayout.MinWidth(200)))
                 EditorGUIUtility.PingObject(folder);
             
-            if(GUILayout.Button("Remove", GUILayout.MinWidth(60)))
+            Color orginalColor = GUI.backgroundColor;
+            GUI.backgroundColor = dangerBtnColor;
+            if(GUILayout.Button("Remove", GUILayout.MinWidth(50), GUILayout.MaxWidth(60)))
                 config.RemoveFolderRef(folder, isCustomRef);
+            GUI.backgroundColor = orginalColor;
                     
             GUILayout.EndHorizontal();
         }
@@ -257,5 +280,3 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         #endregion
     }
 }
-
-#endif

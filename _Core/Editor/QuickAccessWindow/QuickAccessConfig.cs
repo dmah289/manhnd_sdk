@@ -29,6 +29,24 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
         }
+        
+        public void AddCustomAssetRef(Object target)
+        {
+            if (CustomAssetRefs == null)
+                CustomAssetRefs = new List<Object>();
+                
+            if(!CustomFolderRefs.Contains(target))
+                CustomAssetRefs.Add(target);
+        }
+
+        public void AddCustomFolderRef(Object target)
+        {
+            if (CustomFolderRefs == null)
+                CustomFolderRefs = new List<Object>();
+            
+            if(!CustomFolderRefs.Contains(target))
+                CustomFolderRefs.Add(target);
+        }
 
         public void RemoveAssetRef(Object target, bool isCustomRef)
         {

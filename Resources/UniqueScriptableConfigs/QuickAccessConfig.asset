@@ -26,17 +26,5 @@ MonoBehaviour:
     SubFolders:
     - {fileID: 102900000, guid: e6334daa9135fd54fb327b0defffc83f, type: 3}
     - {fileID: 102900000, guid: 7d6efb7f158b6464c97e57e696b30548, type: 3}
-  - titleName: Materials
-    enableLoadingAssets: 1
-    enableLoadingSubfolders: 1
-    rootFolderReference:
-    - GUID: 9a399a7e266c7874db6866d6ac665a44
-    Assets:
-    - {fileID: 2100000, guid: ee2b3161ca6e78b418538f25d20af912, type: 2}
-    - {fileID: 2100000, guid: ad6158bebadaac04e9320f31e5f6d96a, type: 2}
-    SubFolders: []
-  Assets: []
-  Folders: []
-  CustomAssetRefs:
-  - {fileID: 2100000, guid: ad6158bebadaac04e9320f31e5f6d96a, type: 2}
+  CustomAssetRefs: []
   CustomFolderRefs: []

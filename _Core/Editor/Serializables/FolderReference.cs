@@ -13,18 +13,11 @@ namespace manhnd_sdk.Serializables
     public class FolderReference
     {
         [SerializeField] private string GUID;
-        private string name;
-        
-        public string Name => name;
         
         public string Path
         {
             get => AssetDatabase.GUIDToAssetPath(GUID);
-            set
-            {
-                GUID = AssetDatabase.AssetPathToGUID(value);
-                name = System.IO.Path.GetFileName(value);
-            }
+            set => GUID = AssetDatabase.AssetPathToGUID(value);
         }
 
         public bool IsValid => !string.IsNullOrEmpty(GUID) && AssetDatabase.IsValidFolder(Path);
@@ -39,10 +32,12 @@ namespace manhnd_sdk.Serializables
             var guids = AssetDatabase.FindAssets($"t:{typeof(T).Name}", new[] { Path });
 
             List<T> results = new();
+            string path;
             for (int i = 0; i < guids.Length; i++)
             {
-                if (!AssetDatabase.IsValidFolder(AssetDatabase.GUIDToAssetPath(guids[i])))
-                    results.Add(AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(guids[i])));
+                path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                if (!AssetDatabase.IsValidFolder(path))
+                    results.Add(AssetDatabase.LoadAssetAtPath<T>(path));
             }
 
             return results.ToArray();
