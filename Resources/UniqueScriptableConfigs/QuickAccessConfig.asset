@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c0a5378902844809994dc51314f10667, type: 3}
   m_Name: QuickAccessConfig
   m_EditorClassIdentifier: 
-  LoadingSceneName: 
+  LoadingSceneName: StartScreen
   assetsInFolder: []
   CustomAssetRefs: []
   CustomFolderRefs: []

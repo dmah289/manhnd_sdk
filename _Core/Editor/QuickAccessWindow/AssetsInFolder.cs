@@ -33,11 +33,14 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             
             for (int i = 0; i < rootFolderReference.Length; i++)
             {
-                if (enableLoadingAssets)
-                    Assets.AddRange(rootFolderReference[i].LoadAssets<Object>());
+                if (rootFolderReference[i].IsValid)
+                {
+                    if (enableLoadingAssets)
+                        Assets.AddRange(rootFolderReference[i].LoadAssets<Object>());
 
-                if (enableLoadingSubfolders)
-                    SubFolders.AddRange(rootFolderReference[i].GetSubFolders());
+                    if (enableLoadingSubfolders)
+                        SubFolders.AddRange(rootFolderReference[i].GetSubFolders());
+                }
             }
         }
     }
