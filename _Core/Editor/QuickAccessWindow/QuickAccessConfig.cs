@@ -1,115 +1,217 @@
-using System;
 using System.Collections.Generic;
 using manhnd_sdk.Common;
 using manhnd_sdk.Editor.Utility;
+using manhnd_sdk.Serializables;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Serialization;
 using Object = UnityEngine.Object;
 
 namespace manhnd_sdk.Modules.QuickAccessWindow
 {
+    /// <summary>
+    /// Persistent state for the Quick Access window. All mutations go through methods here so the
+    /// asset is marked dirty exactly once per logical change.
+    /// </summary>
     [CreateAssetMenu(fileName = "QuickAccessConfig", menuName = "Scriptable Settings/Quick Access Config")]
     public class QuickAccessConfig : UniqueScriptableConfig<QuickAccessConfig>
     {
-        public string LoadingSceneName;
-        
-        public List<AssetsInFolder> assetsInFolder;
-        [HideInInspector] public List<Object> CustomAssetRefs;
-        [HideInInspector] public List<Object> CustomFolderRefs;
-
-        #region Unity Callbacks
+        [FormerlySerializedAs("LoadingSceneName")] public string loadingSceneName;
+        [FormerlySerializedAs("assetsInFolder")]   public List<QuickAccessGroup> groups;
 
         private void OnEnable()
         {
-            if (assetsInFolder == null)
-                assetsInFolder = new();
+            groups ??= new List<QuickAccessGroup>();
         }
 
-        #endregion
-        
-        
-        public void LoadAllAssets()
+        // ──────────────── Loading ────────────────
+
+        public void RebuildAllLoaded()
         {
-            if(assetsInFolder == null || assetsInFolder.Count == 0)
-                return;
-            
-            foreach (var assets in assetsInFolder)
+            if (groups == null) return;
+            for (int i = 0; i < groups.Count; i++) groups[i].RebuildLoaded();
+        }
+
+        public void SetLoadingSceneName(string sceneName)
+        {
+            if (loadingSceneName == sceneName) return;
+            loadingSceneName = sceneName;
+            MarkDirty();
+        }
+
+        // ──────────────── Group lifecycle ────────────────
+
+        public void AddGroup(string title, bool loadAssets, bool loadSubfolders)
+        {
+            groups ??= new List<QuickAccessGroup>();
+            groups.Add(new QuickAccessGroup
             {
-                assets.LoadAssets();
-            }
-            
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-        }
-        
-        public void AddCustomAssetRef(Object target)
-        {
-            if (CustomAssetRefs == null)
-                CustomAssetRefs = new List<Object>();
-                
-            if(!CustomAssetRefs.Contains(target))
-                CustomAssetRefs.Add(target);
+                title = title,
+                loadAssets = loadAssets,
+                loadSubfolders = loadSubfolders,
+                editExpanded = true
+                // List fields are lazy-initialised on first append / RebuildLoaded.
+            });
+            MarkDirty();
         }
 
-        public void AddCustomFolderRef(Object target)
+        public void RemoveGroup(int index)
         {
-            if (CustomFolderRefs == null)
-                CustomFolderRefs = new List<Object>();
-            
-            if(!CustomFolderRefs.Contains(target))
-                CustomFolderRefs.Add(target);
+            if (!IsValidGroupIndex(index)) return;
+            groups.RemoveAt(index);
+            MarkDirty();
         }
 
-        public void RemoveAssetRef(Object target, bool isCustomRef)
+        public void MoveGroup(int index, int delta)
         {
+            int target = index + delta;
+            if (!IsValidGroupIndex(index) || !IsValidGroupIndex(target)) return;
+            (groups[index], groups[target]) = (groups[target], groups[index]);
+            MarkDirty();
+        }
+
+        // ──────────────── Root folders ────────────────
+
+        public void AddRootFoldersToGroup(int groupIndex, IList<Object> folders)
+        {
+            if (folders == null || folders.Count == 0) return;
+            if (!TryGetGroup(groupIndex, out QuickAccessGroup group)) return;
+
+            bool anyAdded = false;
+            for (int i = 0; i < folders.Count; i++)
+                anyAdded |= TryAppendRoot(group, folders[i]);
+
+            if (!anyAdded) return;
+            group.RebuildLoaded();
+            MarkDirty();
+        }
+
+        public void RemoveRootFolderFromGroup(int groupIndex, int folderIndex)
+        {
+            if (!TryGetGroup(groupIndex, out QuickAccessGroup group)) return;
+            if (group.roots == null) return;
+            if (folderIndex < 0 || folderIndex >= group.roots.Count) return;
+
+            group.roots.RemoveAt(folderIndex);
+            group.RebuildLoaded();
+            MarkDirty();
+        }
+
+        // ──────────────── Pinned (per-group shortcuts) ────────────────
+
+        public void AddPinnedToGroup(int groupIndex, IList<Object> items)
+        {
+            if (items == null || items.Count == 0) return;
+            if (!TryGetGroup(groupIndex, out QuickAccessGroup group)) return;
+
+            bool anyAdded = false;
+            for (int i = 0; i < items.Count; i++)
+                anyAdded |= TryAppendPinned(group, items[i]);
+
+            if (anyAdded) MarkDirty();
+        }
+
+        // GUID is unique across assets and folders, so scanning both buckets is unambiguous.
+        public void RemovePinnedFromGroup(int groupIndex, Object target)
+        {
+            if (!TryGetGroup(groupIndex, out QuickAccessGroup group)) return;
+
             string targetGuid = AssetDatabaseUtility.GetGuid(target);
+            bool removed = RemoveAllByGuid(group.pinnedAssets,  targetGuid)
+                         | RemoveAllByGuid(group.pinnedFolders, targetGuid);
 
-            if(isCustomRef)
-            {
-                for (int i = 0; i < CustomAssetRefs.Count; i++)
-                {
-                    if (AssetDatabaseUtility.GetGuid(CustomAssetRefs[i]).Equals(targetGuid))
-                        CustomAssetRefs.Remove(CustomAssetRefs[i]);
-                }
-            }
-            else
-            {
-                for (int i = 0; i < assetsInFolder.Count; i++)
-                {
-                    for(int j = 0; j < assetsInFolder[i].Assets.Count; j++)
-                    {
-                        if (AssetDatabaseUtility.GetGuid(assetsInFolder[i].Assets[j]).Equals(targetGuid))
-                            assetsInFolder[i].Assets.Remove(assetsInFolder[i].Assets[j]);
-                    }
-                }
-            }
+            if (removed) MarkDirty();
         }
 
-        public void RemoveFolderRef(Object folder, bool isCustomRef = false)
+        // ──────────────── Loaded cache (rebuilt by Refresh) ────────────────
+
+        // Removes the asset from its group's loaded cache. Refresh will repopulate from root folders;
+        // use this to hide noise temporarily, not as a permanent delete.
+        public void RemoveLoadedAsset(Object target)  => RemoveFromAllGroupCaches(target, isFolder: false);
+        public void RemoveLoadedFolder(Object target) => RemoveFromAllGroupCaches(target, isFolder: true);
+
+        private void RemoveFromAllGroupCaches(Object target, bool isFolder)
         {
-            string targetGuid = AssetDatabaseUtility.GetGuid(folder);
+            if (groups == null) return;
 
-            if (isCustomRef)
+            string targetGuid = AssetDatabaseUtility.GetGuid(target);
+            bool removed = false;
+            for (int i = 0; i < groups.Count; i++)
             {
-                for (int i = 0; i < CustomFolderRefs.Count; i++)
-                {
-                    if (AssetDatabaseUtility.GetGuid(CustomFolderRefs[i]).Equals(targetGuid))
-                        CustomFolderRefs.Remove(CustomFolderRefs[i]);
-                }
+                List<Object> list = isFolder ? groups[i].loadedSubfolders : groups[i].loadedAssets;
+                removed |= RemoveAllByGuid(list, targetGuid);
+            }
+            if (removed) MarkDirty();
+        }
+
+        // ──────────────── Helpers ────────────────
+
+        private bool IsValidGroupIndex(int index) =>
+            groups != null && index >= 0 && index < groups.Count;
+
+        private bool TryGetGroup(int index, out QuickAccessGroup group)
+        {
+            if (IsValidGroupIndex(index)) { group = groups[index]; return true; }
+            group = null;
+            return false;
+        }
+
+        private static bool TryAppendRoot(QuickAccessGroup group, Object folder)
+        {
+            if (folder == null) return false;
+
+            string path = AssetDatabase.GetAssetPath(folder);
+            if (string.IsNullOrEmpty(path) || !AssetDatabase.IsValidFolder(path)) return false;
+
+            group.roots ??= new List<FolderReference>();
+
+            for (int i = 0; i < group.roots.Count; i++)
+                if (group.roots[i] != null && group.roots[i].Path == path) return false;
+
+            group.roots.Add(new FolderReference(path));
+            return true;
+        }
+
+        private static bool TryAppendPinned(QuickAccessGroup group, Object item)
+        {
+            if (item == null) return false;
+
+            string path = AssetDatabase.GetAssetPath(item);
+            if (string.IsNullOrEmpty(path)) return false;
+
+            List<Object> bucket;
+            if (AssetDatabase.IsValidFolder(path))
+            {
+                group.pinnedFolders ??= new List<Object>();
+                bucket = group.pinnedFolders;
             }
             else
             {
-                for (int i = 0; i < assetsInFolder.Count; i++)
+                group.pinnedAssets ??= new List<Object>();
+                bucket = group.pinnedAssets;
+            }
+
+            if (bucket.Contains(item)) return false;
+            bucket.Add(item);
+            return true;
+        }
+
+        private static bool RemoveAllByGuid(List<Object> list, string targetGuid)
+        {
+            if (list == null) return false;
+
+            bool removed = false;
+            for (int i = list.Count - 1; i >= 0; i--)
+            {
+                if (AssetDatabaseUtility.GetGuid(list[i]).Equals(targetGuid))
                 {
-                    for(int j = 0; j < assetsInFolder[i].SubFolders.Count; j++)
-                    {
-                        if (AssetDatabaseUtility.GetGuid(assetsInFolder[i].SubFolders[j]).Equals(targetGuid))
-                            assetsInFolder[i].SubFolders.Remove(assetsInFolder[i].SubFolders[j]);
-                    }
+                    list.RemoveAt(i);
+                    removed = true;
                 }
             }
+            return removed;
         }
-        
-        
+
+        private void MarkDirty() => EditorUtility.SetDirty(this);
     }
 }
