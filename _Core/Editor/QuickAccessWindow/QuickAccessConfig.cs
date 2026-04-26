@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using manhnd_sdk.Common;
 using manhnd_sdk.Editor.Utility;
 using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace manhnd_sdk.Modules.QuickAccessWindow
 {
@@ -10,15 +12,25 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
     public class QuickAccessConfig : UniqueScriptableConfig<QuickAccessConfig>
     {
         public string LoadingSceneName;
-        public AssetsInFolder[] assetsInFolder;
         
+        public List<AssetsInFolder> assetsInFolder;
         [HideInInspector] public List<Object> CustomAssetRefs;
         [HideInInspector] public List<Object> CustomFolderRefs;
+
+        #region Unity Callbacks
+
+        private void OnEnable()
+        {
+            if (assetsInFolder == null)
+                assetsInFolder = new();
+        }
+
+        #endregion
         
         
         public void LoadAllAssets()
         {
-            if(assetsInFolder == null || assetsInFolder.Length == 0)
+            if(assetsInFolder == null || assetsInFolder.Count == 0)
                 return;
             
             foreach (var assets in assetsInFolder)
@@ -35,7 +47,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             if (CustomAssetRefs == null)
                 CustomAssetRefs = new List<Object>();
                 
-            if(!CustomFolderRefs.Contains(target))
+            if(!CustomAssetRefs.Contains(target))
                 CustomAssetRefs.Add(target);
         }
 
@@ -62,7 +74,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             }
             else
             {
-                for (int i = 0; i < assetsInFolder.Length; i++)
+                for (int i = 0; i < assetsInFolder.Count; i++)
                 {
                     for(int j = 0; j < assetsInFolder[i].Assets.Count; j++)
                     {
@@ -87,7 +99,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             }
             else
             {
-                for (int i = 0; i < assetsInFolder.Length; i++)
+                for (int i = 0; i < assetsInFolder.Count; i++)
                 {
                     for(int j = 0; j < assetsInFolder[i].SubFolders.Count; j++)
                     {
@@ -97,5 +109,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
                 }
             }
         }
+        
+        
     }
 }

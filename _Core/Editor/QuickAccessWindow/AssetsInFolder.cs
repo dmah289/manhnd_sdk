@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using JetBrains.Annotations;
 using manhnd_sdk.Serializables;
 using UnityEngine;
+using UnityEngine.Serialization;
 using Object = UnityEngine.Object;
 
 namespace manhnd_sdk.Modules.QuickAccessWindow
@@ -12,13 +14,17 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         public string titleName;
         public bool enableLoadingAssets;
         public bool enableLoadingSubfolders;
-        public FolderReference[] rootFolderReference;
+        public List<FolderReference> rootFolderReferences;
         [HideInInspector] public List<Object> Assets;
         [HideInInspector] public List<Object> SubFolders;
+
+        public bool IsValid => !String.IsNullOrEmpty(titleName) 
+                               && ((Assets != null && Assets.Count > 0)
+                                   || (SubFolders != null && SubFolders.Count > 0));
         
         public void LoadAssets()
         {
-            if (rootFolderReference == null || rootFolderReference.Length == 0)
+            if (rootFolderReferences == null || rootFolderReferences.Count == 0)
             {
                 if(Assets == null)
                     Assets = new List<Object>();
@@ -31,15 +37,15 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             Assets.Clear();
             SubFolders.Clear();
             
-            for (int i = 0; i < rootFolderReference.Length; i++)
+            for (int i = 0; i < rootFolderReferences.Count; i++)
             {
-                if (rootFolderReference[i].IsValid)
+                if (rootFolderReferences[i].IsValid)
                 {
                     if (enableLoadingAssets)
-                        Assets.AddRange(rootFolderReference[i].LoadAssets<Object>());
+                        Assets.AddRange(rootFolderReferences[i].LoadAssets<Object>());
 
                     if (enableLoadingSubfolders)
-                        SubFolders.AddRange(rootFolderReference[i].GetSubFolders());
+                        SubFolders.AddRange(rootFolderReferences[i].GetSubFolders());
                 }
             }
         }

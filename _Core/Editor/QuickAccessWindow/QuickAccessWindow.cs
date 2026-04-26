@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using manhnd_sdk.QuickAccessWindow;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -7,34 +9,64 @@ using Object = UnityEngine.Object;
 
 namespace manhnd_sdk.Modules.QuickAccessWindow
 {
-    public class QuickAccessWindow : EditorWindow
+    public class QuickAccessWindow : EditorWindow, IHasCustomMenu
     {
         private static GUIStyle _titleStyle;
         private static GUIStyle _normalButtonStyle;
         private static GUIStyle _flexibleBtnStyle;
         
-        private static Color flexibleBtnColor = new (80/255f, 1f, 100/255f, 1f);
         private static Color dangerBtnColor = new (1f, 50/255f, 50/255f, 1f);
         
         private Vector2 _scrollPosition;
+        private static Object[] _sceneObjects;
+        
         
         private static Object[] BuildScenes
         {
             get
             {
-                var buildScenes = EditorBuildSettings.scenes;
-                Object[] sceneObjects = new Object[buildScenes.Length];
-
-                for (int i = 0; i < buildScenes.Length; i++)
+                if(_sceneObjects == null)
                 {
-                    sceneObjects[i] = AssetDatabase.LoadAssetAtPath<Object>(buildScenes[i].path);
+                    var buildScenes = EditorBuildSettings.scenes;
+                    _sceneObjects = new Object[buildScenes.Length];
+
+                    for (int i = 0; i < buildScenes.Length; i++)
+                        _sceneObjects[i] = AssetDatabase.LoadAssetAtPath<Object>(buildScenes[i].path);
                 }
                 
-                return sceneObjects;
+                return _sceneObjects;
             }
         }
+        
+        
+        #region Unity Callbacks
 
-        #region Menu Item
+        private void OnEnable()
+        {
+            Refresh();
+        }
+
+        private void OnGUI()
+        {
+            InitializeGUIStyles();
+            
+            HandleDragAndDropCustomReferences();
+
+            HandleMiddleMouseScroll();
+            
+            HandleScrollView();
+        }
+
+        public void AddItemsToMenu(GenericMenu menu)
+        {
+            menu.AddItem(new GUIContent("Refresh"), false, Refresh);
+            menu.AddItem(new GUIContent("Open Quick Access Config"), false, SelectQuickAccessConfig);
+            menu.AddItem(new GUIContent("Add Quick Access Group"), false, AddQuickAccessGroup);
+        }
+
+        #endregion
+
+        #region Menu Methods
         
         [MenuItem("manhnd_sdk/Window/Quick Access")]
         private static void ShowWindow()
@@ -44,13 +76,32 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             window.Show();
         }
         
+        private void SelectQuickAccessConfig()
+        {
+            QuickAccessConfig config = QuickAccessConfig.Instance;
+            EditorGUIUtility.PingObject(config);
+            AssetDatabase.OpenAsset(config);
+        }
+        
+        private void Refresh()
+        {
+            QuickAccessConfig.Instance.LoadAllAssets();
+        }
+
+        private void AddQuickAccessGroup()
+        {
+            Rect btnRect = new Rect(0, 0, 1, 1);
+            
+            PopupWindow.Show(btnRect, new AddQuickAccessGroupPopup("New Group", true, true));
+        }
+        
         #endregion
 
-        #region Unity Callbacks
-
-        private void OnEnable()
+        #region OnGUI Handlers
+        
+        private static void InitializeGUIStyles()
         {
-            _titleStyle = new GUIStyle()
+            _titleStyle ??= new GUIStyle()
             {
                 fontSize = 20,
                 fontStyle = FontStyle.Bold,
@@ -58,34 +109,18 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             };
             _titleStyle.normal.textColor = Color.green;
             
-            Refresh();
-        }
-
-        private void OnGUI()
-        {
-            HandleDragAndDropCustomReferences();
-            
-            if(_normalButtonStyle == null)
-                _normalButtonStyle = new GUIStyle(GUI.skin.button) { alignment = TextAnchor.MiddleCenter };
-
-            if (_flexibleBtnStyle == null)
+            _normalButtonStyle ??= new GUIStyle(GUI.skin.button)
             {
-                _flexibleBtnStyle = new GUIStyle(GUI.skin.button)
-                {
-                    alignment = TextAnchor.MiddleCenter,
-                    fontSize = 15
-                };
-            }
-            
-            HandleMiddleMouseScroll();
-            
-            HandleScrollView();
+                alignment = TextAnchor.MiddleCenter
+            };
+
+            _flexibleBtnStyle ??= new GUIStyle(GUI.skin.button)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 15
+            };
         }
-
-        #endregion
-
-        #region Methods
-
+        
         private void HandleDragAndDropCustomReferences()
         {
             Event evt = Event.current;
@@ -111,16 +146,6 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             }
         }
         
-        private void RegisterCustomReference(string path, Object reference)
-        {
-            QuickAccessConfig config = QuickAccessConfig.Instance;
-            
-            if(AssetDatabase.IsValidFolder(path))
-                config.AddCustomFolderRef(reference);
-            else
-                config.AddCustomAssetRef(reference);
-        }
-        
         private void HandleMiddleMouseScroll()
         {
             if (Event.current.type == EventType.ScrollWheel)
@@ -136,8 +161,6 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
                 GUILayout.Height(position.height));
 
             DrawContents();
-            
-            DrawFlexibleContents();
 
             GUILayout.EndScrollView();
         }
@@ -154,21 +177,27 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             for(int i = 0 ; i < BuildScenes.Length; i++)
                 DrawAssetButton(BuildScenes[i]);
 
-            AssetsInFolder[] assetsInFolder = config.assetsInFolder;
-            for (int i = 0; i < assetsInFolder.Length; i++)
+            if(config.assetsInFolder != null && config.assetsInFolder.Count > 0)
             {
-                GUILayout.Label(assetsInFolder[i].titleName, _titleStyle);
-
-                if (assetsInFolder[i].enableLoadingAssets)
+                List<AssetsInFolder> assetsInFolder = config.assetsInFolder;
+                for (int i = 0; i < assetsInFolder.Count; i++)
                 {
-                    for (int j = 0; j < assetsInFolder[i].Assets.Count; j++)
-                        DrawAssetButton(assetsInFolder[i].Assets[j]);
-                }
+                    if(assetsInFolder[i].IsValid)
+                    {
+                        GUILayout.Label(assetsInFolder[i].titleName, _titleStyle);
 
-                if (assetsInFolder[i].enableLoadingSubfolders)
-                {
-                    for(int j = 0; j < assetsInFolder[i].SubFolders.Count; j++)
-                        DrawFolderButton(assetsInFolder[i].SubFolders[j]);
+                        if (assetsInFolder[i].enableLoadingAssets)
+                        {
+                            for (int j = 0; j < assetsInFolder[i].Assets.Count; j++)
+                                DrawAssetButton(assetsInFolder[i].Assets[j]);
+                        }
+
+                        if (assetsInFolder[i].enableLoadingSubfolders)
+                        {
+                            for (int j = 0; j < assetsInFolder[i].SubFolders.Count; j++)
+                                DrawFolderButton(assetsInFolder[i].SubFolders[j]);
+                        }
+                    }
                 }
             }
 
@@ -185,51 +214,6 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
                 for (int i = 0; i < config.CustomFolderRefs.Count; i++)
                     DrawFolderButton(config.CustomFolderRefs[i], true);
             }
-        }
-
-        private void DrawFlexibleContents()
-        {
-            GUILayout.FlexibleSpace();
-
-            if (GUILayout.Button("Quick Access Config", _flexibleBtnStyle, GUILayout.Height(30)))
-            {
-                EditorGUIUtility.PingObject(QuickAccessConfig.Instance);
-                AssetDatabase.OpenAsset(QuickAccessConfig.Instance);
-            }
-            
-            Color originalColor = GUI.backgroundColor;
-            GUI.backgroundColor = flexibleBtnColor;
-            if(GUILayout.Button("Refresh",_flexibleBtnStyle, GUILayout.Height(40)))
-                Refresh();
-            GUI.backgroundColor = originalColor;
-            
-            
-        }
-
-        private void OpenAndPlayScene(string targetSceneName)
-        {
-            bool found = false;
-            
-            Object[] sceneObjects = BuildScenes;
-            for (int i = 0; i < sceneObjects.Length; i++)
-            {
-                if (sceneObjects[i].name == targetSceneName)
-                {
-                    EditorSceneManager.SaveScene(SceneManager.GetActiveScene());
-                    EditorSceneManager.OpenScene(AssetDatabase.GetAssetPath(sceneObjects[i]));
-                    found = true;
-                }
-            }
-            
-            if(found)
-                EditorApplication.isPlaying = true;
-            else
-                throw new Exception($"Scene with name '{targetSceneName}' set up in QuickAccessConfig not found in Build Settings!");
-        }
-        
-        private void Refresh()
-        {
-            QuickAccessConfig.Instance.LoadAllAssets();
         }
 
         private void DrawAssetButton(Object asset, bool isCustomRef = false)
@@ -278,5 +262,42 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         }
 
         #endregion
+
+        #region OnGUI Methods
+        
+        private void OpenAndPlayScene(string targetSceneName)
+        {
+            bool found = false;
+            
+            Object[] sceneObjects = BuildScenes;
+            for (int i = 0; i < sceneObjects.Length; i++)
+            {
+                if (sceneObjects[i].name == targetSceneName)
+                {
+                    EditorSceneManager.SaveScene(SceneManager.GetActiveScene());
+                    EditorSceneManager.OpenScene(AssetDatabase.GetAssetPath(sceneObjects[i]));
+                    found = true;
+                }
+            }
+            
+            if(found)
+                EditorApplication.isPlaying = true;
+            else
+                throw new Exception($"Scene with name '{targetSceneName}' set up in QuickAccessConfig not found in Build Settings!");
+        }
+
+        private void RegisterCustomReference(string path, Object reference)
+        {
+            QuickAccessConfig config = QuickAccessConfig.Instance;
+            
+            if(AssetDatabase.IsValidFolder(path))
+                config.AddCustomFolderRef(reference);
+            else
+                config.AddCustomAssetRef(reference);
+        }
+
+        #endregion
+
+        
     }
 }

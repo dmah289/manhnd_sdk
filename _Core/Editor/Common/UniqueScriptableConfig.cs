@@ -11,26 +11,29 @@ namespace manhnd_sdk.Common
     /// </summary>
     public abstract class UniqueScriptableConfig<T> : ScriptableObject where T : ScriptableObject
     {
-        private static string folderPath = "Assets/manhnd_sdk/Resources/UniqueScriptableConfigs";
+        private static string folderPath = "Assets/Resources/UniqueScriptableConfigs_manhndSDK";
         
         protected static T _instance;
         public static T Instance
         {
             get
             {
-                string configPath = $"{folderPath}/{typeof(T).Name}.asset";
-                _instance = AssetDatabase.LoadAssetAtPath<T>(configPath);
-                
                 if (_instance == null)
                 {
-                    if (!AssetDatabase.IsValidFolder(folderPath))
-                        FolderUtility.CreateFolderRecursively(folderPath);
+                    string configPath = $"{folderPath}/{typeof(T).Name}.asset";
+                    _instance = AssetDatabase.LoadAssetAtPath<T>(configPath);
+
+                    if (_instance == null)
+                    {
+                        if (!AssetDatabase.IsValidFolder(folderPath))
+                            FolderUtility.CreateFolderRecursively(folderPath);
                     
-                    _instance = CreateInstance<T>();
-                    AssetDatabase.CreateAsset(_instance, configPath);
-                    AssetDatabase.SaveAssets();
+                        _instance = CreateInstance<T>();
+                        AssetDatabase.CreateAsset(_instance, configPath);
+                        AssetDatabase.SaveAssets();
                     
-                    EditorGUIUtility.PingObject(_instance);
+                        EditorGUIUtility.PingObject(_instance);
+                    }
                 }
 
                 return _instance;
