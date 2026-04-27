@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using manhnd_sdk.Serializables;
 using UnityEngine;
-using UnityEngine.Scripting.APIUpdating;
-using UnityEngine.Serialization;
 using Object = UnityEngine.Object;
 
 namespace manhnd_sdk.Modules.QuickAccessWindow
@@ -15,19 +13,18 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
     ///   • <c>loadedAssets</c> / <c>loadedSubfolders</c> — derived cache rebuilt by <see cref="RebuildLoaded"/>.
     /// </summary>
     [Serializable]
-    [MovedFrom(false, sourceClassName: "AssetsInFolder")]
     public class QuickAccessGroup
     {
-        [FormerlySerializedAs("titleName")]                public string title;
-        [FormerlySerializedAs("enableLoadingAssets")]      public bool loadAssets;
-        [FormerlySerializedAs("enableLoadingSubfolders")] public bool loadSubfolders;
-        [FormerlySerializedAs("rootFolderReferences")]    public List<FolderReference> roots;
+        public string title;
+        public bool loadAssets;
+        public bool loadSubfolders;
+        public List<FolderReference> roots;
 
-        [FormerlySerializedAs("PinnedAssets")]  public List<Object> pinnedAssets;
-        [FormerlySerializedAs("PinnedFolders")] public List<Object> pinnedFolders;
+        public List<Object> pinnedAssets;
+        public List<Object> pinnedFolders;
 
-        [HideInInspector, FormerlySerializedAs("Assets")]     public List<Object> loadedAssets;
-        [HideInInspector, FormerlySerializedAs("SubFolders")] public List<Object> loadedSubfolders;
+        [HideInInspector] public List<Object> loadedAssets;
+        [HideInInspector] public List<Object> loadedSubfolders;
 
         [NonSerialized] public bool foldoutExpanded = true;
         [NonSerialized] public bool editExpanded;

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using manhnd_sdk.Common;
 using manhnd_sdk.Editor.Utility;
 using manhnd_sdk.Serializables;
 using UnityEditor;
@@ -10,11 +9,12 @@ using Object = UnityEngine.Object;
 namespace manhnd_sdk.Modules.QuickAccessWindow
 {
     /// <summary>
-    /// Persistent state for the Quick Access window. All mutations go through methods here so the
-    /// asset is marked dirty exactly once per logical change.
+    /// Persistent state for the Quick Access window. Editor-only — the asset lives under
+    /// <c>ProjectSettings/</c> so Unity excludes it from player builds. All mutations go through
+    /// methods here so the file is saved exactly once per logical change.
     /// </summary>
-    [CreateAssetMenu(fileName = "QuickAccessConfig", menuName = "Scriptable Settings/Quick Access Config")]
-    public class QuickAccessConfig : UniqueScriptableConfig<QuickAccessConfig>
+    [FilePath("ProjectSettings/manhnd_sdk_QuickAccessConfig.asset", FilePathAttribute.Location.ProjectFolder)]
+    public class QuickAccessConfig : ScriptableSingleton<QuickAccessConfig>
     {
         [FormerlySerializedAs("LoadingSceneName")] public string loadingSceneName;
         [FormerlySerializedAs("assetsInFolder")]   public List<QuickAccessGroup> groups;
@@ -32,13 +32,6 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             for (int i = 0; i < groups.Count; i++) groups[i].RebuildLoaded();
         }
 
-        public void SetLoadingSceneName(string sceneName)
-        {
-            if (loadingSceneName == sceneName) return;
-            loadingSceneName = sceneName;
-            MarkDirty();
-        }
-
         // ──────────────── Group lifecycle ────────────────
 
         public void AddGroup(string title, bool loadAssets, bool loadSubfolders)
@@ -52,14 +45,14 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
                 editExpanded = true
                 // List fields are lazy-initialised on first append / RebuildLoaded.
             });
-            MarkDirty();
+            Persist();
         }
 
         public void RemoveGroup(int index)
         {
             if (!IsValidGroupIndex(index)) return;
             groups.RemoveAt(index);
-            MarkDirty();
+            Persist();
         }
 
         public void MoveGroup(int index, int delta)
@@ -67,7 +60,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             int target = index + delta;
             if (!IsValidGroupIndex(index) || !IsValidGroupIndex(target)) return;
             (groups[index], groups[target]) = (groups[target], groups[index]);
-            MarkDirty();
+            Persist();
         }
 
         // ──────────────── Root folders ────────────────
@@ -83,7 +76,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
 
             if (!anyAdded) return;
             group.RebuildLoaded();
-            MarkDirty();
+            Persist();
         }
 
         public void RemoveRootFolderFromGroup(int groupIndex, int folderIndex)
@@ -94,7 +87,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
 
             group.roots.RemoveAt(folderIndex);
             group.RebuildLoaded();
-            MarkDirty();
+            Persist();
         }
 
         // ──────────────── Pinned (per-group shortcuts) ────────────────
@@ -108,7 +101,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             for (int i = 0; i < items.Count; i++)
                 anyAdded |= TryAppendPinned(group, items[i]);
 
-            if (anyAdded) MarkDirty();
+            if (anyAdded) Persist();
         }
 
         // GUID is unique across assets and folders, so scanning both buckets is unambiguous.
@@ -120,7 +113,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             bool removed = RemoveAllByGuid(group.pinnedAssets,  targetGuid)
                          | RemoveAllByGuid(group.pinnedFolders, targetGuid);
 
-            if (removed) MarkDirty();
+            if (removed) Persist();
         }
 
         // ──────────────── Loaded cache (rebuilt by Refresh) ────────────────
@@ -141,10 +134,14 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
                 List<Object> list = isFolder ? groups[i].loadedSubfolders : groups[i].loadedAssets;
                 removed |= RemoveAllByGuid(list, targetGuid);
             }
-            if (removed) MarkDirty();
+            if (removed) Persist();
         }
 
         // ──────────────── Helpers ────────────────
+
+        // Writes the singleton to its FilePath as text (yaml). Call after every logical mutation
+        // so the file survives crashes — ScriptableSingleton has no AssetDatabase auto-save cycle.
+        public void Persist() => Save(saveAsText: true);
 
         private bool IsValidGroupIndex(int index) =>
             groups != null && index >= 0 && index < groups.Count;
@@ -211,7 +208,5 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             }
             return removed;
         }
-
-        private void MarkDirty() => EditorUtility.SetDirty(this);
     }
 }
