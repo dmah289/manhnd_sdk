@@ -13,7 +13,7 @@
         {
             "Queue"="Transparent"
             "IgnoreProjector"="True"
-            "RenderType"="Opaque"
+            "RenderType"="Background"
         }
         
         Blend SrcAlpha OneMinusSrcAlpha
@@ -52,9 +52,8 @@
                 interpolator i;
                 i.vertex = UnityObjectToClipPos(v.vertex);
                 
-                float aspectRatio = _ScreenParams.x / _ScreenParams.y;
                 i.uv = v.uv * _MainTex_ST.xy + _MainTex_ST.zw;
-                i.uv *= aspectRatio;
+                i.uv.x *= _ScreenParams.x / _ScreenParams.y;
                 
                 i.uv += frac(float2(_Time.y * _Speed * sin(radians(_Angle)), _Time.y * _Speed * cos(radians(_Angle))));
                 
