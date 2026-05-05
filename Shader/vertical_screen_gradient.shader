@@ -4,8 +4,8 @@
     {
         _TopColor ("Top Color", Color) = (1,1,1,1)
         _BottomColor ("Bottom Color", Color) = (0,0,0,1)
-        _Scale ("Scale", Vector) = (1,1,0,0)
-        _Pow ("Power (Blend Smoothness)", Float) = 1
+        _GradientScaleTiling ("Gradient Scale Tiling", Vector) = (1,1,0,0)
+        _GradientPow ("Blend Smoothness", Float) = 1
     }
     SubShader
     {
@@ -37,8 +37,8 @@
             };
 
             fixed4 _TopColor, _BottomColor;
-            fixed4 _Scale;
-            fixed _Pow;
+            fixed4 _GradientScaleTiling;
+            fixed _GradientPow;
 
             v2f vert (appdata v)
             {
@@ -51,9 +51,9 @@
             fixed4 frag (v2f i) : SV_Target
             {
                 fixed2 uvScreen = i.scr.xy / i.scr.z;
-                uvScreen = uvScreen * _Scale.xy + _Scale.zw;
+                uvScreen = uvScreen * _GradientScaleTiling.xy + _GradientScaleTiling.zw;
                 fixed4 col = 1;
-                col.rgb = lerp(_BottomColor.rgb, _TopColor.rgb, pow(saturate(uvScreen.y), _Pow));
+                col.rgb = lerp(_BottomColor.rgb, _TopColor.rgb, pow(saturate(uvScreen.y), _GradientPow));
                 
                 return col;
             }
