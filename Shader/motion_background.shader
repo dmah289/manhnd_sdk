@@ -3,7 +3,8 @@
     Properties
     {
         _MainTex ("Texture", 2D) = "white" {}
-        _Opacity("Opacity", Range(0,1)) = 1
+        _ColorPattern("Color Pattern", Color) = (1,1,1,1)
+        // _Opacity("Opacity", Range(0,1)) = 1
         _Speed("Speed", float) = 1
         _Angle("Angle", Range(0,360)) = 0
     }
@@ -43,9 +44,10 @@
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
-            float _Opacity;
+            // float _Opacity;
             float _Speed;
             float _Angle;
+            fixed4 _ColorPattern;
 
             interpolator vert(meshdata v)
             {
@@ -63,7 +65,8 @@
             fixed4 frag(interpolator i) : SV_Target
             {
                 fixed4 col = tex2D(_MainTex, frac(i.uv));
-                col.a *= _Opacity;
+                col *= _ColorPattern;
+                // col.a *= _Opacity;
                 return col;
             }
             ENDCG
