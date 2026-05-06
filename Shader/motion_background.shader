@@ -53,8 +53,6 @@
                 i.vertex = UnityObjectToClipPos(v.vertex);
                 
                 i.uv = v.uv * _MainTex_ST.xy + _MainTex_ST.zw;
-                i.uv.x *= _ScreenParams.x / _ScreenParams.y;
-                
                 i.uv += frac(float2(_Time.y * _Speed * sin(radians(_Angle)), _Time.y * _Speed * cos(radians(_Angle))));
                 
                 return i;
