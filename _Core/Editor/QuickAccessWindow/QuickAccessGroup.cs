@@ -16,8 +16,9 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
     public class QuickAccessGroup
     {
         public string title;
-        public bool loadAssets;
-        public bool loadSubfolders;
+        public bool enableLoadingFilesFromRootFolders;
+        public bool enableLoadingSubfoldersFromRootFolders;
+        public bool enableLoadingRecursively;
         public List<FolderReference> roots;
 
         public List<Object> pinnedAssets;
@@ -44,8 +45,11 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
                 FolderReference root = roots[i];
                 if (root == null || !root.IsValid) continue;
 
-                if (loadAssets) loadedAssets.AddRange(root.LoadAssets<Object>());
-                if (loadSubfolders) loadedSubfolders.AddRange(root.GetSubFolders());
+                if (enableLoadingFilesFromRootFolders) 
+                    loadedAssets.AddRange(root.LoadAssets<Object>(enableLoadingRecursively));
+                
+                if (enableLoadingSubfoldersFromRootFolders)
+                    loadedSubfolders.AddRange(root.GetSubFolders());
             }
         }
     }

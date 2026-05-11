@@ -16,34 +16,25 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
     [FilePath("ProjectSettings/manhnd_sdk_QuickAccessConfig.asset", FilePathAttribute.Location.ProjectFolder)]
     public class QuickAccessConfig : ScriptableSingleton<QuickAccessConfig>
     {
-        [FormerlySerializedAs("LoadingSceneName")] public string loadingSceneName;
-        [FormerlySerializedAs("assetsInFolder")]   public List<QuickAccessGroup> groups;
+        public string loadingSceneName;
+        public List<QuickAccessGroup> groups;
 
         private void OnEnable()
         {
             groups ??= new List<QuickAccessGroup>();
         }
 
-        // ──────────────── Loading ────────────────
-
-        public void RebuildAllLoaded()
-        {
-            if (groups == null) return;
-            for (int i = 0; i < groups.Count; i++) groups[i].RebuildLoaded();
-        }
-
         // ──────────────── Group lifecycle ────────────────
 
-        public void AddGroup(string title, bool loadAssets, bool loadSubfolders)
+        public void AddGroup(string title, bool enableLoadingFiles, bool enableLoadingSubfolders)
         {
             groups ??= new List<QuickAccessGroup>();
             groups.Add(new QuickAccessGroup
             {
                 title = title,
-                loadAssets = loadAssets,
-                loadSubfolders = loadSubfolders,
+                enableLoadingFilesFromRootFolders = enableLoadingFiles,
+                enableLoadingSubfoldersFromRootFolders = enableLoadingSubfolders,
                 editExpanded = true
-                // List fields are lazy-initialised on first append / RebuildLoaded.
             });
             Persist();
         }

@@ -76,6 +76,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
 
                 DropHint = new GUIStyle(EditorStyles.helpBox)
                 {
+                    fontSize = 12,
                     alignment = TextAnchor.MiddleCenter,
                     fontStyle = FontStyle.Italic,
                 };
@@ -95,13 +96,14 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             public static readonly GUIContent Favourite      = new("Favourite");
             public static readonly GUIContent BuildScenes    = new("Build Scenes");
             public static readonly GUIContent TitleField     = new("Title");
-            public static readonly GUIContent LoadAssets     = new("Load Assets");
-            public static readonly GUIContent LoadSubfolders = new("Load Subfolders");
+            public static readonly GUIContent LoadFilesFromRoots      = new("Enable Loading Files From Root Folders");
+            public static readonly GUIContent LoadSubfoldersFromRoots = new("Enable Loading Subfolders From Root Folders");
+            public static readonly GUIContent LoadRecursively         = new("Enable Loading Recursively");
             public static readonly GUIContent RootFolders    = new("Root Folders");
             public static readonly GUIContent PinnedSection  = new("📌 Pinned", "Items pinned directly to this group (folders here are reference-only).");
             public static readonly GUIContent LoadedSection  = new("From root folders");
-            public static readonly GUIContent EmptyRoots     = new("Drop folders here to add as roots.");
-            public static readonly GUIContent EmptyGroup     = new("Drop a folder to add as root, or hold Shift while dropping to pin.");
+            public static readonly GUIContent EmptyRoots     = new("Hold Shift + drop folders here to load all below references.");
+            public static readonly GUIContent EmptyGroup     = new("Drop to pin, or hold Shift while dropping folders to add as roots.");
 
             // Icon-bearing content — lazy-init from EditorGUIUtility (icons require editor skin).
             public static GUIContent Refresh;
@@ -146,7 +148,6 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
 
         private static class Layouts
         {
-            public static readonly GUILayoutOption[] TbRefresh    = { GUILayout.Width(50) };
             public static readonly GUILayoutOption[] TbAddGroup   = { GUILayout.Width(100) };
             public static readonly GUILayoutOption[] TbScene      = { GUILayout.Width(180) };
             public static readonly GUILayoutOption[] Mini24       = { GUILayout.Width(24) };
@@ -187,7 +188,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         private void OnEnable()
         {
             EditorBuildSettings.sceneListChanged += MarkBuildScenesDirty;
-            Refresh();
+            MarkBuildScenesDirty();
         }
 
         private void OnDisable()
@@ -251,8 +252,6 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         {
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
 
-            if (GUILayout.Button(Content.Refresh, EditorStyles.toolbarButton, Layouts.TbRefresh))
-                Refresh();
             if (GUILayout.Button(Content.AddGroup, EditorStyles.toolbarButton, Layouts.TbAddGroup))
                 _config.AddGroup("New Group", true, true);
 
@@ -288,10 +287,9 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             menu.ShowAsContext();
         }
 
-        private void Refresh()
+        private void RefreshGroup(QuickAccessGroup group)
         {
-            QuickAccessConfig.instance.RebuildAllLoaded();
-            MarkBuildScenesDirty();
+            group.RebuildLoaded();
             Repaint();
         }
 
@@ -299,7 +297,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
 
         private void DrawFavouriteSection()
         {
-            DrawSectionTitle(Content.Favourite);
+            GUILayout.Space(10);
 
             using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(_config.loadingSceneName)))
             {
@@ -364,6 +362,8 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
 
             if (GUILayout.Button(Content.Edit, EditorStyles.miniButton, Layouts.Mini40))
                 group.editExpanded = !group.editExpanded;
+            if (GUILayout.Button(Content.Refresh, EditorStyles.miniButton, Layouts.Mini24))
+                RefreshGroup(group);
 
             int last = _config.groups.Count - 1;
             using (new EditorGUI.DisabledScope(index == 0))
@@ -382,17 +382,19 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
             float savedLabelWidth = EditorGUIUtility.labelWidth;
-            EditorGUIUtility.labelWidth = 110;
+            EditorGUIUtility.labelWidth = 250;
 
             EditorGUI.BeginChangeCheck();
-            string title          = EditorGUILayout.TextField(Content.TitleField, group.title);
-            bool   loadAssets     = EditorGUILayout.Toggle(Content.LoadAssets, group.loadAssets);
-            bool   loadSubfolders = EditorGUILayout.Toggle(Content.LoadSubfolders, group.loadSubfolders);
+            string title             = EditorGUILayout.TextField(Content.TitleField, group.title);
+            bool   loadFiles         = EditorGUILayout.Toggle(Content.LoadFilesFromRoots, group.enableLoadingFilesFromRootFolders);
+            bool   loadSubfolders    = EditorGUILayout.Toggle(Content.LoadSubfoldersFromRoots, group.enableLoadingSubfoldersFromRootFolders);
+            bool   loadRecursively   = EditorGUILayout.Toggle(Content.LoadRecursively, group.enableLoadingRecursively);
             if (EditorGUI.EndChangeCheck())
             {
                 group.title          = title;
-                group.loadAssets     = loadAssets;
-                group.loadSubfolders = loadSubfolders;
+                group.enableLoadingFilesFromRootFolders = loadFiles;
+                group.enableLoadingSubfoldersFromRootFolders = loadSubfolders;
+                group.enableLoadingRecursively = loadRecursively;
                 group.RebuildLoaded();
                 _config.Persist();
             }
@@ -444,8 +446,8 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         private void DrawGroupItems(int index, QuickAccessGroup group)
         {
             bool hasPinned = HasItems(group.pinnedAssets) || HasItems(group.pinnedFolders);
-            bool hasLoaded = (group.loadAssets     && HasItems(group.loadedAssets))
-                          || (group.loadSubfolders && HasItems(group.loadedSubfolders));
+            bool hasLoaded = (group.enableLoadingFilesFromRootFolders      && HasItems(group.loadedAssets))
+                          || (group.enableLoadingSubfoldersFromRootFolders && HasItems(group.loadedSubfolders));
 
             if (hasPinned)
             {
@@ -458,8 +460,8 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             {
                 if (hasPinned) GUILayout.Space(4);
                 DrawSubsectionLabel(Content.LoadedSection);
-                if (group.loadAssets)     DrawAssetRows(group.loadedAssets,     ItemSource.Loaded, index);
-                if (group.loadSubfolders) DrawFolderRows(group.loadedSubfolders, ItemSource.Loaded, index);
+                if (group.enableLoadingFilesFromRootFolders)      DrawAssetRows(group.loadedAssets,     ItemSource.Loaded, index);
+                if (group.enableLoadingSubfoldersFromRootFolders) DrawFolderRows(group.loadedSubfolders, ItemSource.Loaded, index);
             }
 
             if (!hasPinned && !hasLoaded)
@@ -494,9 +496,17 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             if (asset == null) return;
 
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button(Content.Ping, Layouts.Ping))                          EditorGUIUtility.PingObject(asset);
-            if (GUILayout.Button(asset.name, Styles.AssetButton, Layouts.AssetName))   AssetDatabase.OpenAsset(asset);
-            if (DangerButton(Content.Remove, Layouts.Remove))                          RemoveAsset(asset, source, groupIndex);
+            
+            if (GUILayout.Button(Content.Ping, Layouts.Ping))
+                EditorGUIUtility.PingObject(asset);
+
+            if (GUILayout.Button(asset.name, Styles.AssetButton, Layouts.AssetName)
+                && AssetDatabase.OpenAsset(asset))
+                EditorApplication.ExecuteMenuItem("Window/General/Inspector");
+            
+            if (DangerButton(Content.Remove, Layouts.Remove))
+                RemoveAsset(asset, source, groupIndex);
+            
             GUILayout.EndHorizontal();
         }
 
@@ -548,8 +558,8 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
                 return;
             }
 
-            // Shift forces pin mode. Without Shift: all-folders → root, otherwise → pin (files cannot be roots).
-            bool pinMode = evt.shift || !AreAllFolders(dragged);
+            // Default is pin mode. Shift + all-folders → root (files cannot be roots).
+            bool pinMode = !evt.shift || !AreAllFolders(dragged);
 
             UpdateHover(targetGroup, pinMode);
             DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
