@@ -93,7 +93,6 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             public static readonly GUIContent Ping           = new("Ping", "Highlight in Project window");
             public static readonly GUIContent Remove         = new("Remove");
             public static readonly GUIContent PlayGame       = new("▶ Play Game", "Open the loading scene and enter Play mode");
-            public static readonly GUIContent Favourite      = new("Favourite");
             public static readonly GUIContent BuildScenes    = new("Build Scenes");
             public static readonly GUIContent TitleField     = new("Title");
             public static readonly GUIContent LoadFilesFromRoots      = new("Enable Loading Files From Root Folders");
