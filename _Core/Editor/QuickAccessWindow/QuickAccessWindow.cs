@@ -6,8 +6,9 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
+using manhnd_sdk.EditorTool.Common;
 
-namespace manhnd_sdk.Modules.QuickAccessWindow
+namespace manhnd_sdk.EditorTool.Modules.QuickAccessWindow
 {
     /// <summary>
     /// Editor window providing fast access to scenes, configurable groups of folders, and pinned shortcuts.
@@ -21,142 +22,10 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         // ──────────────── Types ────────────────
 
         private enum ItemSource { Loaded, Pinned }
-
-        // ──────────────── Static UI cache ────────────────
-
-        private static readonly Color DangerColor    = new(0.95f, 0.35f, 0.35f, 1f);
-        private static readonly Color PlayTintColor  = new(0.45f, 0.85f, 0.55f, 1f);
-        private static readonly Color RootHoverColor = new(0.35f, 0.7f, 1f, 0.45f);    // root mode: soft blue
-        private static readonly Color PinHoverColor  = new(1f, 0.78f, 0.35f, 0.5f);    // pin  mode: soft amber
-
+        
         // Theme-aware separator (translucent line under section titles).
         private static Color SeparatorColor =>
             EditorGUIUtility.isProSkin ? new Color(1f, 1f, 1f, 0.10f) : new Color(0f, 0f, 0f, 0.15f);
-
-        // GUIStyle init is deferred to first OnGUI because GUI.skin is not available before that.
-        private static class Styles
-        {
-            public static GUIStyle SectionTitle;
-            public static GUIStyle GroupTitle;
-            public static GUIStyle AssetButton;     // left-aligned for readable names
-            public static GUIStyle PlayButton;
-            public static GUIStyle GroupBox;
-            public static GUIStyle DropHint;
-
-            public static void Ensure()
-            {
-                if (SectionTitle != null) return;
-
-                SectionTitle = new GUIStyle(EditorStyles.boldLabel)
-                {
-                    fontSize = 13,
-                    margin = new RectOffset(2, 2, 6, 0),
-                };
-
-                GroupTitle = new GUIStyle(EditorStyles.foldout) { fontSize = 13, fontStyle = FontStyle.Bold };
-
-                AssetButton = new GUIStyle(GUI.skin.button)
-                {
-                    alignment = TextAnchor.MiddleLeft,
-                    padding = new RectOffset(8, 4, 2, 2),
-                };
-
-                PlayButton = new GUIStyle(GUI.skin.button)
-                {
-                    fontSize = 14,
-                    fontStyle = FontStyle.Bold,
-                    alignment = TextAnchor.MiddleCenter,
-                };
-
-                GroupBox = new GUIStyle(GUI.skin.box)
-                {
-                    padding = new RectOffset(10, 10, 8, 8),
-                    margin = new RectOffset(2, 2, 4, 4),
-                };
-
-                DropHint = new GUIStyle(EditorStyles.helpBox)
-                {
-                    fontSize = 12,
-                    alignment = TextAnchor.MiddleCenter,
-                    fontStyle = FontStyle.Italic,
-                };
-            }
-        }
-
-        private static class Content
-        {
-            // Stable text — eager init.
-            public static readonly GUIContent AddGroup       = new("Add Group", "Append a new group");
-            public static readonly GUIContent Edit           = new("Edit", "Toggle inline editor");
-            public static readonly GUIContent MoveUp         = new("▲", "Move group up");
-            public static readonly GUIContent MoveDown       = new("▼", "Move group down");
-            public static readonly GUIContent Ping           = new("Ping", "Highlight in Project window");
-            public static readonly GUIContent Remove         = new("Remove");
-            public static readonly GUIContent PlayGame       = new("▶ Play Game", "Open the loading scene and enter Play mode");
-            public static readonly GUIContent BuildScenes    = new("Build Scenes");
-            public static readonly GUIContent TitleField     = new("Title");
-            public static readonly GUIContent LoadFilesFromRoots      = new("Enable Loading Files From Root Folders");
-            public static readonly GUIContent LoadSubfoldersFromRoots = new("Enable Loading Subfolders From Root Folders");
-            public static readonly GUIContent LoadRecursively         = new("Enable Loading Recursively");
-            public static readonly GUIContent RootFolders    = new("Root Folders");
-            public static readonly GUIContent PinnedSection  = new("📌 Pinned", "Items pinned directly to this group (folders here are reference-only).");
-            public static readonly GUIContent LoadedSection  = new("From root folders");
-            public static readonly GUIContent EmptyRoots     = new("Hold Shift + drop folders here to load all below references.");
-            public static readonly GUIContent EmptyGroup     = new("Drop to pin, or hold Shift while dropping folders to add as roots.");
-
-            // Icon-bearing content — lazy-init from EditorGUIUtility (icons require editor skin).
-            public static GUIContent Refresh;
-            public static GUIContent Trash;     // group/header X
-            public static GUIContent TrashSmall; // root folder X (smaller scale)
-
-            private static bool _iconsLoaded;
-
-            public static void EnsureIcons()
-            {
-                if (_iconsLoaded) return;
-                _iconsLoaded = true;
-
-                Refresh    = WithIcon("Refresh",            "Reload all groups and rescan build scenes", "↻");
-                Trash      = WithIcon("d_TreeEditor.Trash", "Remove",                                    "X");
-                TrashSmall = WithIcon("d_TreeEditor.Trash", "Remove",                                    "×");
-            }
-
-            private static GUIContent WithIcon(string iconName, string tooltip, string textFallback)
-            {
-                Texture image = EditorGUIUtility.IconContent(iconName)?.image;
-                return image != null ? new GUIContent(image, tooltip) : new GUIContent(textFallback, tooltip);
-            }
-
-            // Dynamic label "Scene: <name>" with cached invalidation by current value.
-            private static GUIContent _loadingButton;
-            private static string     _loadingButtonCachedFor;
-
-            public static GUIContent LoadingButton(string sceneName)
-            {
-                if (_loadingButton == null)
-                    _loadingButton = new GUIContent { tooltip = "Loading scene played by Play Game" };
-
-                if (_loadingButtonCachedFor != sceneName)
-                {
-                    _loadingButton.text = string.IsNullOrEmpty(sceneName) ? "Scene: <none>" : "Scene: " + sceneName;
-                    _loadingButtonCachedFor = sceneName;
-                }
-                return _loadingButton;
-            }
-        }
-
-        private static class Layouts
-        {
-            public static readonly GUILayoutOption[] TbAddGroup   = { GUILayout.Width(100) };
-            public static readonly GUILayoutOption[] TbScene      = { GUILayout.Width(180) };
-            public static readonly GUILayoutOption[] Mini24       = { GUILayout.Width(24) };
-            public static readonly GUILayoutOption[] Mini40       = { GUILayout.Width(40) };
-            public static readonly GUILayoutOption[] PlayBtn      = { GUILayout.Height(32) };
-            public static readonly GUILayoutOption[] Ping         = { GUILayout.MaxWidth(50) };
-            public static readonly GUILayoutOption[] AssetName    = { GUILayout.MinWidth(150) };
-            public static readonly GUILayoutOption[] FolderName   = { GUILayout.MinWidth(200) };
-            public static readonly GUILayoutOption[] Remove       = { GUILayout.MinWidth(50), GUILayout.MaxWidth(60) };
-        }
 
         // ──────────────── Build-scenes cache (shared across windows) ────────────────
 
@@ -176,7 +45,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
 
         // ──────────────── Lifecycle ────────────────
 
-        [MenuItem("manhnd_sdk/Window/Quick Access")]
+        [MenuItem("manhnd_sdk/Quick Access")]
         private static void ShowWindow()
         {
             var window = GetWindow<QuickAccessWindow>();
@@ -197,8 +66,8 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
 
         private void OnGUI()
         {
-            Styles.Ensure();
-            Content.EnsureIcons();
+            StaticStyles.Ensure();
+            StaticGUIContent.EnsureIcons();
             _config = QuickAccessConfig.instance;
             EnsureBuildScenes();
 
@@ -251,13 +120,13 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         {
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
 
-            if (GUILayout.Button(Content.AddGroup, EditorStyles.toolbarButton, Layouts.TbAddGroup))
+            if (GUILayout.Button(StaticGUIContent.AddGroup, EditorStyles.toolbarButton, StaticGUILayout.TbAddGroup))
                 _config.AddGroup("New Group", true, true);
 
             GUILayout.FlexibleSpace();
 
-            GUIContent dropdownLabel = Content.LoadingButton(_config.loadingSceneName);
-            if (EditorGUILayout.DropdownButton(dropdownLabel, FocusType.Keyboard, EditorStyles.toolbarDropDown, Layouts.TbScene))
+            GUIContent dropdownLabel = StaticGUIContent.LoadingButton(_config.loadingSceneName);
+            if (EditorGUILayout.DropdownButton(dropdownLabel, FocusType.Keyboard, EditorStyles.toolbarDropDown, StaticGUILayout.TbScene))
                 ShowLoadingSceneMenu();
 
             EditorGUILayout.EndHorizontal();
@@ -301,8 +170,8 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(_config.loadingSceneName)))
             {
                 Color savedBg = GUI.backgroundColor;
-                GUI.backgroundColor = PlayTintColor;
-                if (GUILayout.Button(Content.PlayGame, Styles.PlayButton, Layouts.PlayBtn))
+                GUI.backgroundColor = StaticColor.PlayTintColor;
+                if (GUILayout.Button(StaticGUIContent.PlayGame, StaticStyles.PlayButton, StaticGUILayout.PlayBtn))
                     PlayLoadingScene();
                 GUI.backgroundColor = savedBg;
             }
@@ -312,7 +181,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
 
         private void DrawBuildScenesSection()
         {
-            DrawSectionTitle(Content.BuildScenes);
+            DrawSectionTitle(StaticGUIContent.BuildScenes);
             for (int i = 0; i < _buildScenes.Length; i++)
                 DrawAssetRow(_buildScenes[i]);
             GUILayout.Space(8);
@@ -335,10 +204,10 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             if (hovered)
             {
                 savedBg = GUI.backgroundColor;
-                GUI.backgroundColor = _hoverPinMode ? PinHoverColor : RootHoverColor;
+                GUI.backgroundColor = _hoverPinMode ? StaticColor.PinHoverColor : StaticColor.RootHoverColor;
             }
 
-            EditorGUILayout.BeginVertical(Styles.GroupBox);
+            EditorGUILayout.BeginVertical(StaticStyles.GroupBox);
             if (hovered) GUI.backgroundColor = savedBg;
 
             DrawGroupHeader(index, group);
@@ -356,21 +225,21 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             EditorGUILayout.BeginHorizontal();
 
             string title = string.IsNullOrEmpty(group.title) ? "unnamed" : group.title;
-            group.foldoutExpanded = EditorGUILayout.Foldout(group.foldoutExpanded, title, true, Styles.GroupTitle);
+            group.foldoutExpanded = EditorGUILayout.Foldout(group.foldoutExpanded, title, true, StaticStyles.GroupTitle);
             GUILayout.FlexibleSpace();
 
-            if (GUILayout.Button(Content.Edit, EditorStyles.miniButton, Layouts.Mini40))
+            if (GUILayout.Button(StaticGUIContent.Edit, EditorStyles.miniButton, StaticGUILayout.Mini40))
                 group.editExpanded = !group.editExpanded;
-            if (GUILayout.Button(Content.Refresh, EditorStyles.miniButton, Layouts.Mini24))
+            if (GUILayout.Button(StaticGUIContent.Refresh, EditorStyles.miniButton, StaticGUILayout.Mini24))
                 RefreshGroup(group);
 
             int last = _config.groups.Count - 1;
             using (new EditorGUI.DisabledScope(index == 0))
-                if (GUILayout.Button(Content.MoveUp,   EditorStyles.miniButton, Layouts.Mini24)) _config.MoveGroup(index, -1);
+                if (GUILayout.Button(StaticGUIContent.MoveUp,   EditorStyles.miniButton, StaticGUILayout.Mini24)) _config.MoveGroup(index, -1);
             using (new EditorGUI.DisabledScope(index >= last))
-                if (GUILayout.Button(Content.MoveDown, EditorStyles.miniButton, Layouts.Mini24)) _config.MoveGroup(index, +1);
+                if (GUILayout.Button(StaticGUIContent.MoveDown, EditorStyles.miniButton, StaticGUILayout.Mini24)) _config.MoveGroup(index, +1);
 
-            if (DangerButton(Content.Trash, EditorStyles.miniButton, Layouts.Mini24))
+            if (DangerButton(StaticGUIContent.Trash, EditorStyles.miniButton, StaticGUILayout.Mini24))
                 ConfirmRemoveGroup(index, group);
 
             EditorGUILayout.EndHorizontal();
@@ -384,10 +253,10 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             EditorGUIUtility.labelWidth = 250;
 
             EditorGUI.BeginChangeCheck();
-            string title             = EditorGUILayout.TextField(Content.TitleField, group.title);
-            bool   loadFiles         = EditorGUILayout.Toggle(Content.LoadFilesFromRoots, group.enableLoadingFilesFromRootFolders);
-            bool   loadSubfolders    = EditorGUILayout.Toggle(Content.LoadSubfoldersFromRoots, group.enableLoadingSubfoldersFromRootFolders);
-            bool   loadRecursively   = EditorGUILayout.Toggle(Content.LoadRecursively, group.enableLoadingRecursively);
+            string title             = EditorGUILayout.TextField(StaticGUIContent.TitleField, group.title);
+            bool   loadFiles         = EditorGUILayout.Toggle(StaticGUIContent.LoadFilesFromRoots, group.enableLoadingFilesFromRootFolders);
+            bool   loadSubfolders    = EditorGUILayout.Toggle(StaticGUIContent.LoadSubfoldersFromRoots, group.enableLoadingSubfoldersFromRootFolders);
+            bool   loadRecursively   = EditorGUILayout.Toggle(StaticGUIContent.LoadRecursively, group.enableLoadingRecursively);
             if (EditorGUI.EndChangeCheck())
             {
                 group.title          = title;
@@ -399,7 +268,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             }
 
             GUILayout.Space(4);
-            EditorGUILayout.LabelField(Content.RootFolders, EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(StaticGUIContent.RootFolders, EditorStyles.boldLabel);
             DrawRootsEditor(index, group);
 
             EditorGUIUtility.labelWidth = savedLabelWidth;
@@ -411,7 +280,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             List<FolderReference> roots = group.roots;
             if (roots == null || roots.Count == 0)
             {
-                GUILayout.Label(Content.EmptyRoots, Styles.DropHint);
+                GUILayout.Label(StaticGUIContent.EmptyRoots, StaticStyles.DropHint);
                 return;
             }
 
@@ -434,7 +303,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
                     }
                 }
 
-                if (DangerButton(Content.TrashSmall, Layouts.Mini24)) removeAt = j;
+                if (DangerButton(StaticGUIContent.TrashSmall, StaticGUILayout.Mini24)) removeAt = j;
 
                 EditorGUILayout.EndHorizontal();
             }
@@ -450,7 +319,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
 
             if (hasPinned)
             {
-                DrawSubsectionLabel(Content.PinnedSection);
+                DrawSubsectionLabel(StaticGUIContent.PinnedSection);
                 DrawAssetRows(group.pinnedAssets,  ItemSource.Pinned, index);
                 DrawFolderRows(group.pinnedFolders, ItemSource.Pinned, index);
             }
@@ -458,13 +327,13 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             if (hasLoaded)
             {
                 if (hasPinned) GUILayout.Space(4);
-                DrawSubsectionLabel(Content.LoadedSection);
+                DrawSubsectionLabel(StaticGUIContent.LoadedSection);
                 if (group.enableLoadingFilesFromRootFolders)      DrawAssetRows(group.loadedAssets,     ItemSource.Loaded, index);
                 if (group.enableLoadingSubfoldersFromRootFolders) DrawFolderRows(group.loadedSubfolders, ItemSource.Loaded, index);
             }
 
             if (!hasPinned && !hasLoaded)
-                GUILayout.Label(Content.EmptyGroup, Styles.DropHint);
+                GUILayout.Label(StaticGUIContent.EmptyGroup, StaticStyles.DropHint);
         }
 
         private void ConfirmRemoveGroup(int index, QuickAccessGroup group)
@@ -496,14 +365,14 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
 
             GUILayout.BeginHorizontal();
             
-            if (GUILayout.Button(Content.Ping, Layouts.Ping))
+            if (GUILayout.Button(StaticGUIContent.Ping, StaticGUILayout.Ping))
                 EditorGUIUtility.PingObject(asset);
 
-            if (GUILayout.Button(asset.name, Styles.AssetButton, Layouts.AssetName)
+            if (GUILayout.Button(asset.name, StaticStyles.AssetButton, StaticGUILayout.AssetName)
                 && AssetDatabase.OpenAsset(asset))
                 EditorApplication.ExecuteMenuItem("Window/General/Inspector");
             
-            if (DangerButton(Content.Remove, Layouts.Remove))
+            if (DangerButton(StaticGUIContent.Remove, StaticGUILayout.Remove))
                 RemoveAsset(asset, source, groupIndex);
             
             GUILayout.EndHorizontal();
@@ -514,8 +383,8 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
             if (folder == null) return;
 
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button(folder.name, Styles.AssetButton, Layouts.FolderName)) EditorGUIUtility.PingObject(folder);
-            if (DangerButton(Content.Remove, Layouts.Remove))                          RemoveFolder(folder, source, groupIndex);
+            if (GUILayout.Button(folder.name, StaticStyles.AssetButton, StaticGUILayout.FolderName)) EditorGUIUtility.PingObject(folder);
+            if (DangerButton(StaticGUIContent.Remove, StaticGUILayout.Remove))                          RemoveFolder(folder, source, groupIndex);
             GUILayout.EndHorizontal();
         }
 
@@ -611,7 +480,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         private void HandleScrollWheelBoost()
         {
             if (Event.current.type != EventType.ScrollWheel) return;
-            _scroll += Event.current.delta * 10f;
+            _scroll += Event.current.delta * 20f;
             Event.current.Use();
         }
 
@@ -640,7 +509,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         private static void DrawSectionTitle(GUIContent label)
         {
             GUILayout.Space(4);
-            GUILayout.Label(label, Styles.SectionTitle);
+            GUILayout.Label(label, StaticStyles.SectionTitle);
             DrawSeparator();
             GUILayout.Space(2);
         }
@@ -661,7 +530,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         private static bool DangerButton(GUIContent content, GUIStyle style, GUILayoutOption[] options)
         {
             Color bg = GUI.backgroundColor;
-            GUI.backgroundColor = DangerColor;
+            GUI.backgroundColor = StaticColor.DangerColor;
             bool clicked = GUILayout.Button(content, style, options);
             GUI.backgroundColor = bg;
             return clicked;
@@ -670,7 +539,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         private static bool DangerButton(GUIContent content, GUILayoutOption[] options)
         {
             Color bg = GUI.backgroundColor;
-            GUI.backgroundColor = DangerColor;
+            GUI.backgroundColor = StaticColor.DangerColor;
             bool clicked = GUILayout.Button(content, options);
             GUI.backgroundColor = bg;
             return clicked;

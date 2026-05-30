@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.Serialization;
 using Object = UnityEngine.Object;
 
-namespace manhnd_sdk.Modules.QuickAccessWindow
+namespace manhnd_sdk.EditorTool.Modules.QuickAccessWindow
 {
     /// <summary>
     /// Persistent state for the Quick Access window. Editor-only — the asset lives under

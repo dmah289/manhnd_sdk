@@ -4,7 +4,7 @@ using manhnd_sdk.Serializables;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace manhnd_sdk.Modules.QuickAccessWindow
+namespace manhnd_sdk.EditorTool.Modules.QuickAccessWindow
 {
     /// <summary>
     /// One section in the Quick Access window.
@@ -27,7 +27,7 @@ namespace manhnd_sdk.Modules.QuickAccessWindow
         [HideInInspector] public List<Object> loadedAssets;
         [HideInInspector] public List<Object> loadedSubfolders;
 
-        [NonSerialized] public bool foldoutExpanded = true;
+        [NonSerialized] public bool foldoutExpanded;
         [NonSerialized] public bool editExpanded;
 
         public void RebuildLoaded()
