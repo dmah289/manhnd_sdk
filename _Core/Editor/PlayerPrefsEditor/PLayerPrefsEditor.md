@@ -1,70 +1,45 @@
-# Player Prefs Editor
-
-Xem, sửa, lưu, xoá PlayerPrefs trực tiếp trong Editor mà không cần chạy game.
-
-**Menu**: `manhnd_sdk > Player Prefs Editor` · **Platform**: Windows only
-
----
-
-## Giao diện
-
-```
-| [💾 Save All] [↩ Revert All] [🗑 Delete All]              |
-| Search [________________________][X]                       |
-| Key          | Type   | Value                 |            |
-| player_name  | string | Alice                 | [💾][↩][🗑] |
-| high_score   | int    | 9500                  | [💾][↩][🗑] |
-| config_data  | string | {"level":5,"hp":100}  | [📋][💾][↩][🗑] |
-| 3 entries                                                  |
-```
-
-- **Type** có màu phân biệt: `int` cyan · `float` magenta · `string` xanh lá
-- **Nút có icon** — hover để xem tooltip (Save, Revert, Delete, Edit JSON)
-- **Màu nút**: 💾 Save = xanh lá · ↩ Revert = xanh dương · 🗑 Delete = đỏ
-- Dòng xen kẽ sáng/tối để dễ đọc
-- String dài tự wrap nhiều dòng theo chiều ngang window
-
----
-
 ## Chỉnh sửa
 
-Nhập trực tiếp vào ô **Value**. Khi giá trị thay đổi:
+Nhập trực tiếp vào ô Value. Khi có thay đổi:
 
-- Ô Value chuyển **cam** → nút 💾 / ↩ kích hoạt (trước đó bị mờ disabled)
-- 💾 **Save** → ghi vào Registry ngay. Giá trị không hợp lệ (vd: "abc" cho int) sẽ không lưu, Console hiện warning
-- ↩ **Revert** → huỷ thay đổi, trả lại giá trị gốc
-- Kiểu dữ liệu luôn được bảo toàn — int vẫn lưu int, không chuyển sang string
+- Ô Value chuyển **cam** → nút 💾 Save / ↩ Revert được kích hoạt
+- 💾 **Save** — ghi vào Registry, giữ đúng kiểu dữ liệu gốc. Nếu giá trị không hợp lệ → không lưu, Console hiện warning
+- ↩ **Revert** — huỷ thay đổi, trả về giá trị gốc
+
+### Giá trị string dài
+
+String hiển thị với word-wrap. Nếu nội dung vượt quá **7 dòng hiển thị** (tính theo wrap thực tế, không phải số `\n`), ô Value tự chuyển sang dạng cuộn — chiều cao cố định 7 dòng, cuộn dọc để xem/sửa phần còn lại.
 
 ---
 
 ## JSON Editor
 
-Nếu string là **JSON hợp lệ**, nút 📋 xuất hiện bên cạnh ô value. String không phải JSON sẽ không có nút này.
+Nếu value là **JSON hợp lệ** (bắt đầu bằng `{` hoặc `[`, cặp ngoặc đóng đúng), nút 📋 xuất hiện cạnh ô Value.
 
-Nhấn 📋 mở cửa sổ popup:
+Nhấn 📋 mở popup:
 
-- JSON hiển thị dạng **indented** (4 spaces), font monospace, dễ đọc và sửa
-- Validate realtime — nếu JSON không hợp lệ, hiện cảnh báo vàng + nút Save bị **disabled**
-- 💾 **Save** → compact JSON (xoá whitespace) → trả về row chính, row chuyển cam (chưa ghi Registry)
-- **Cancel** → đóng popup, không thay đổi gì
-- Chỉ mở được 1 popup tại 1 thời điểm — mở popup mới sẽ đóng popup cũ
+- JSON hiển thị dạng indented (4 spaces)
+- Validate realtime — JSON hỏng → cảnh báo vàng + nút Save bị disabled
+- 💾 **Save** — compact JSON → trả về row chính (row chuyển cam, chưa ghi Registry)
+- **Cancel** — đóng popup, không thay đổi gì
+- Chỉ mở được 1 popup tại 1 thời điểm
 
-Luồng: 📋 → sửa indented → Save popup → row cam → 💾 Save row → ghi Registry
+Luồng: 📋 → sửa indented → Save popup → row cam → 💾 Save row → ghi Registry.
 
 ---
 
 ## Xoá
 
-- 🗑 **Delete** trên từng dòng → xoá ngay, không hỏi xác nhận
-- 🗑 **Delete All** → hộp xác nhận. Khi đang search, hộp cảnh báo rõ sẽ xoá **TẤT CẢ** entry, không chỉ kết quả đang lọc
+- 🗑 **Delete** trên từng dòng — xoá ngay, không hỏi xác nhận
+- 🗑 **Delete All** — có hộp xác nhận. Khi đang search, cảnh báo rõ sẽ xoá **tất cả** entry chứ không chỉ kết quả đang lọc
 
 ---
 
 ## Tìm kiếm
 
-Gõ vào ô **Search** → lọc tức thì theo Key, Value, Type. Không phân biệt hoa thường. Nhấn **X** để xoá bộ lọc.
+Gõ vào ô Search → lọc tức thì theo Key, Value, Type (không phân biệt hoa thường). Nhấn **X** để xoá bộ lọc.
 
-> **Lưu ý**: Save All / Delete All tác động lên **tất cả** entry, kể cả entry đang bị ẩn bởi bộ lọc.
+> Save All / Delete All tác động lên **tất cả** entry, kể cả entry đang bị ẩn bởi bộ lọc.
 
 ---
 
@@ -72,24 +47,17 @@ Gõ vào ô **Search** → lọc tức thì theo Key, Value, Type. Không phân 
 
 | Nút | Khi nào disabled |
 |-----|------------------|
-| 💾 **Save All** / ↩ **Revert All** | Không có entry nào bị modified |
-| 🗑 **Delete All** | Danh sách rỗng |
+| 💾 Save All / ↩ Revert All | Không có entry nào bị modified |
+| 🗑 Delete All | Danh sách rỗng |
 
-Save All lưu theo đúng kiểu gốc. Entry nào parse fail thì giữ cam + Console warning, entry hợp lệ vẫn lưu bình thường.
-
----
-
-## Status Bar
-
-`42 entries` · Khi search: `12 / 42 entries` · Khi có thay đổi: `… | 3 modified`
+Save All lưu từng entry theo kiểu gốc. Entry nào parse fail thì giữ cam + warning, các entry hợp lệ vẫn lưu bình thường.
 
 ---
 
-## Các trường hợp đặc biệt
+## Lưu ý
 
-- **Thay đổi bên ngoài**: Danh sách tự cập nhật mỗi frame. Key bị xoá từ bên ngoài → dirty state tự dọn
-- **Save All một phần fail**: Entry hợp lệ lưu xong, entry sai type giữ cam + warning
+- **Tự cập nhật**: danh sách đọc lại từ Registry mỗi frame. Key bị xoá/thêm từ bên ngoài sẽ tự phản ánh, dirty state của key đã mất tự dọn
 - **Float precision**: `0.3f` có thể hiện `0.300000012` — hành vi bình thường của floating point
-- **JSON sửa hỏng trong popup**: Nút Save bị disabled, phải sửa lại cho đúng hoặc Cancel
-- **Không thể tạo key mới** từ tool — dùng `PlayerPrefs.SetXxx()` trong code
+- **Không tạo key mới** từ tool — dùng `PlayerPrefs.SetXxx()` trong code
 - **Không có Undo** cho thao tác đã Save/Delete
+- **Chỉ hỗ trợ Windows** (đọc từ Registry). Platform khác hiện thông báo không hỗ trợ

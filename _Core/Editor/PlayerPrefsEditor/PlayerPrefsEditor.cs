@@ -18,13 +18,18 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
         private string searchField = "";
         private Vector2 scrollPos;
         private Dictionary<string, string> inputPlayerPrefs = new();
+        private Dictionary<string, Vector2> m_stringScrollPositions = new();
         private HashSet<string> savedKey = new();
         private List<PlayerPrefsPair> currentPairs;
         private int visibleCount;
+        private const int MAX_STRING_LINES = 7;
 
         // Cached per-row data — rebuilt once per Layout event, reused across Repaint
         private string[] cachedValueStrs = Array.Empty<string>();
         private bool[] cachedIsJson = Array.Empty<bool>();
+
+        // Reusable GUIContent for CalcHeight — avoids GC alloc per string row per frame
+        private readonly GUIContent m_calcHeightContent = new();
 
         // Styles
         private GUIStyle typeStyle;
@@ -36,6 +41,7 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
         private static readonly GUILayoutOption[] jsonBtnWidth = { GUILayout.Width(24) };
         private static readonly GUILayoutOption[] searchLabelWidth = { GUILayout.Width(50) };
         private static readonly GUILayoutOption[] clearSearchWidth = { GUILayout.Width(20) };
+        private static readonly GUILayoutOption[] expandWidthTrue = { GUILayout.ExpandWidth(true) };
 
         // Colors
         private static readonly Color RowEvenColor = new(0f, 0f, 0f, 0.06f);
@@ -233,9 +239,35 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
                 if (isChanged)
                     GUI.backgroundColor = ModifiedBgColor;
 
-                string editedValue = isString
-                    ? EditorGUILayout.TextArea(displayValue, wordWrapStyle, valueWidthOpt)
-                    : GUILayout.TextArea(displayValue, valueWidthOpt);
+                string editedValue;
+                if (isString)
+                {
+                    float valueWidth = cachedWidth * 0.4f;
+                    float lineHeight = wordWrapStyle.lineHeight > 0 ? wordWrapStyle.lineHeight : EditorGUIUtility.singleLineHeight;
+                    float maxHeight = lineHeight * MAX_STRING_LINES + wordWrapStyle.padding.vertical;
+                    m_calcHeightContent.text = displayValue;
+                    float fullHeight = wordWrapStyle.CalcHeight(m_calcHeightContent, valueWidth);
+
+                    if (fullHeight > maxHeight)
+                    {
+                        if (!m_stringScrollPositions.TryGetValue(pair.Key, out Vector2 strScroll))
+                            strScroll = Vector2.zero;
+
+                        strScroll = EditorGUILayout.BeginScrollView(strScroll, GUILayout.Height(maxHeight), valueWidthOpt[0]);
+                        editedValue = EditorGUILayout.TextArea(displayValue, wordWrapStyle, expandWidthTrue);
+                        EditorGUILayout.EndScrollView();
+
+                        m_stringScrollPositions[pair.Key] = strScroll;
+                    }
+                    else
+                    {
+                        editedValue = EditorGUILayout.TextArea(displayValue, wordWrapStyle, valueWidthOpt);
+                    }
+                }
+                else
+                {
+                    editedValue = GUILayout.TextArea(displayValue, valueWidthOpt);
+                }
 
                 if (editedValue != displayValue)
                 {
@@ -284,6 +316,7 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
                 if (GUILayout.Button(StaticGUIContent.PrefsDelete, actionWidthOpt))
                 {
                     inputPlayerPrefs.Remove(pair.Key);
+                    m_stringScrollPositions.Remove(pair.Key);
                     PlayerPrefs.DeleteKey(pair.Key);
                     PlayerPrefs.Save();
                 }
@@ -377,13 +410,18 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
             }
         }
 
-        private void RevertAll() => inputPlayerPrefs.Clear();
+        private void RevertAll()
+        {
+            inputPlayerPrefs.Clear();
+            m_stringScrollPositions.Clear();
+        }
 
         private void DeleteAll()
         {
             for (int i = 0; i < currentPairs.Count; i++)
                 PlayerPrefs.DeleteKey(currentPairs[i].Key);
             inputPlayerPrefs.Clear();
+            m_stringScrollPositions.Clear();
             PlayerPrefs.Save();
         }
 
@@ -406,7 +444,7 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
 
         private void PurgeStaleDirtyEntries()
         {
-            if (inputPlayerPrefs.Count == 0) return;
+            if (inputPlayerPrefs.Count == 0 && m_stringScrollPositions.Count == 0) return;
 
             savedKey.Clear();
             foreach (var key in inputPlayerPrefs.Keys)
@@ -415,9 +453,19 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
                     savedKey.Add(key);
             }
 
+            foreach (var key in m_stringScrollPositions.Keys)
+            {
+                if (FindPairIndex(key) < 0)
+                    savedKey.Add(key);
+            }
+
             foreach (var key in savedKey)
+            {
                 inputPlayerPrefs.Remove(key);
+                m_stringScrollPositions.Remove(key);
+            }
             savedKey.Clear();
         }
+
     }
 }
