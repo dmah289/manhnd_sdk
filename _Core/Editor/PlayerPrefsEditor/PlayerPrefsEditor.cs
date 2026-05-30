@@ -22,19 +22,29 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
         private List<PlayerPrefsPair> currentPairs;
         private int visibleCount;
 
+        // Cached per-row data — rebuilt once per Layout event, reused across Repaint
+        private string[] cachedValueStrs = Array.Empty<string>();
+        private bool[] cachedIsJson = Array.Empty<bool>();
+
+        // Styles
         private GUIStyle typeStyle;
+        private GUIStyle wordWrapStyle;
+
+        // Layout options — rebuilt only when window width changes
         private float cachedWidth;
         private GUILayoutOption[] keyWidthOpt, typeWidthOpt, valueWidthOpt, actionWidthOpt;
-
+        private static readonly GUILayoutOption[] jsonBtnWidth = { GUILayout.Width(24) };
         private static readonly GUILayoutOption[] searchLabelWidth = { GUILayout.Width(50) };
         private static readonly GUILayoutOption[] clearSearchWidth = { GUILayout.Width(20) };
 
+        // Colors
         private static readonly Color RowEvenColor = new(0f, 0f, 0f, 0.06f);
         private static readonly Color RowOddColor = new(0f, 0f, 0f, 0.14f);
         private static readonly Color ModifiedBgColor = new(1f, 0.6f, 0.2f, 0.5f);
+        private static readonly Color SaveColor = new(0.35f, 0.85f, 0.45f, 1f);
+        private static readonly Color RevertColor = new(0.55f, 0.75f, 1f, 1f);
 
-        private string[] cachedValueStrs = Array.Empty<string>();
-
+        // Status bar — only rebuild string when values change
         private readonly GUIContent statusContent = new();
         private int lastStatusTotal = -1, lastStatusVisible = -1, lastStatusModified = -1;
         private bool lastStatusHasSearch;
@@ -51,6 +61,7 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
         private void OnGUI()
         {
             StaticStyles.Ensure();
+            StaticGUIContent.EnsureIcons();
             EnsureLocalStyles();
             CacheLayoutOptions();
 
@@ -63,12 +74,13 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
             if (Event.current.type == EventType.Layout)
             {
                 currentPairs = playerPrefsProvider.PlayerPrefsPairs;
-                CacheValueStrings();
+                CachePerRowData();
                 PurgeStaleDirtyEntries();
             }
 
             if (currentPairs == null) return;
 
+            HandleScrollWheelBoost();
             GUILayout.Label("Player Prefs Editor", StaticStyles.SectionTitle);
             DrawQuickButtons();
             DrawSearchField();
@@ -77,6 +89,8 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
             DrawStatusBar();
         }
 
+        // ──────────────── Init ────────────────
+
         private void EnsureLocalStyles()
         {
             if (typeStyle != null) return;
@@ -84,6 +98,10 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
             {
                 alignment = TextAnchor.MiddleCenter,
                 fontStyle = FontStyle.Bold,
+            };
+            wordWrapStyle = new GUIStyle(EditorStyles.textArea)
+            {
+                wordWrap = true,
             };
         }
 
@@ -100,38 +118,47 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
             actionWidthOpt = new[] { GUILayout.Width((int)(max * 0.23f / 3f)) };
         }
 
-        private void CacheValueStrings()
+        private void CachePerRowData()
         {
             int count = currentPairs.Count;
             if (cachedValueStrs.Length < count)
+            {
                 cachedValueStrs = new string[count];
+                cachedIsJson = new bool[count];
+            }
+
             for (int i = 0; i < count; i++)
             {
-                object v = currentPairs[i].Value;
+                PlayerPrefsPair pair = currentPairs[i];
+                object v = pair.Value;
+
                 cachedValueStrs[i] = v is string s ? s : v.ToString();
+                cachedIsJson[i] = v is string && JsonEditWindow.IsJsonLike(cachedValueStrs[i]);
             }
         }
 
+        // ──────────────── Draw ────────────────
+
         private void DrawQuickButtons()
         {
-            Color orig = GUI.color;
+            Color origBg = GUI.backgroundColor;
             bool hasModified = inputPlayerPrefs.Count > 0;
             bool hasEntries = currentPairs.Count > 0;
 
             GUILayout.BeginHorizontal();
 
             GUI.enabled = hasModified;
-            GUI.color = Color.green;
-            if (GUILayout.Button("Save All"))
+            GUI.backgroundColor = SaveColor;
+            if (GUILayout.Button(StaticGUIContent.PrefsSaveAll))
                 SaveAll();
 
-            GUI.color = Color.magenta;
-            if (GUILayout.Button("Revert All"))
+            GUI.backgroundColor = RevertColor;
+            if (GUILayout.Button(StaticGUIContent.PrefsRevertAll))
                 RevertAll();
 
             GUI.enabled = hasEntries;
-            GUI.color = StaticColor.DangerColor;
-            if (GUILayout.Button("Delete All"))
+            GUI.backgroundColor = StaticColor.DangerColor;
+            if (GUILayout.Button(StaticGUIContent.PrefsDeleteAll))
             {
                 string message = searchField.Length > 0
                     ? $"This will delete ALL {currentPairs.Count} entries, not just the filtered results.\nThis cannot be undone."
@@ -143,7 +170,7 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
 
             GUILayout.EndHorizontal();
             GUI.enabled = true;
-            GUI.color = orig;
+            GUI.backgroundColor = origBg;
         }
 
         private void DrawSearchField()
@@ -169,7 +196,6 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
         private void DrawPlayerPrefs()
         {
             scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
-            Color origColor = GUI.color;
             Color origBg = GUI.backgroundColor;
             visibleCount = 0;
             bool hasSearch = searchField.Length > 0;
@@ -178,6 +204,8 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
             {
                 PlayerPrefsPair pair = currentPairs[i];
                 string valueStr = cachedValueStrs[i];
+                bool isJson = cachedIsJson[i];
+                bool isString = pair.Value is string;
 
                 if (hasSearch)
                 {
@@ -191,24 +219,52 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
                 EditorGUI.DrawRect(row, visibleCount % 2 == 0 ? RowEvenColor : RowOddColor);
                 visibleCount++;
 
+                // Key
                 GUILayout.Label(pair.Key, keyWidthOpt);
 
+                // Type
                 typeStyle.normal.textColor = pair.TypeColor;
                 GUILayout.Label(pair.AliasType, typeStyle, typeWidthOpt);
 
-                bool isChanged = inputPlayerPrefs.ContainsKey(pair.Key);
-                string displayValue = isChanged ? inputPlayerPrefs[pair.Key] : valueStr;
+                // Value
+                bool isChanged = inputPlayerPrefs.TryGetValue(pair.Key, out string dirtyValue);
+                string displayValue = isChanged ? dirtyValue : valueStr;
+
                 if (isChanged)
                     GUI.backgroundColor = ModifiedBgColor;
-                string editedValue = GUILayout.TextArea(displayValue, valueWidthOpt);
-                OnValueChanged(pair.Key, editedValue, valueStr);
+
+                string editedValue = isString
+                    ? EditorGUILayout.TextArea(displayValue, wordWrapStyle, valueWidthOpt)
+                    : GUILayout.TextArea(displayValue, valueWidthOpt);
+
+                if (editedValue != displayValue)
+                {
+                    if (editedValue != valueStr)
+                        inputPlayerPrefs[pair.Key] = editedValue;
+                    else
+                        inputPlayerPrefs.Remove(pair.Key);
+                }
+
                 GUI.backgroundColor = origBg;
 
+                // JSON button — always rendered for string+json rows (stable control count)
+                if (isJson)
+                {
+                    if (GUILayout.Button(StaticGUIContent.PrefsJsonEdit, jsonBtnWidth))
+                    {
+                        string capturedKey = pair.Key;
+                        JsonEditWindow.Open(capturedKey, displayValue, compact =>
+                        {
+                            inputPlayerPrefs[capturedKey] = compact;
+                        });
+                    }
+                }
+
+                // Save / Revert — disabled when not dirty
                 GUI.enabled = isChanged;
 
-                GUI.color = Color.green;
-                if (GUILayout.Button("Save", actionWidthOpt)
-                    && inputPlayerPrefs.TryGetValue(pair.Key, out string dirtyValue))
+                GUI.backgroundColor = SaveColor;
+                if (GUILayout.Button(StaticGUIContent.PrefsSave, actionWidthOpt) && isChanged)
                 {
                     if (Save(pair.Key, pair.Value, dirtyValue))
                     {
@@ -217,21 +273,22 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
                     }
                 }
 
-                GUI.color = Color.magenta;
-                if (GUILayout.Button("Revert", actionWidthOpt))
+                GUI.backgroundColor = RevertColor;
+                if (GUILayout.Button(StaticGUIContent.PrefsRevert, actionWidthOpt))
                     inputPlayerPrefs.Remove(pair.Key);
 
                 GUI.enabled = true;
 
-                GUI.color = StaticColor.DangerColor;
-                if (GUILayout.Button("Delete", actionWidthOpt))
+                // Delete — always enabled
+                GUI.backgroundColor = StaticColor.DangerColor;
+                if (GUILayout.Button(StaticGUIContent.PrefsDelete, actionWidthOpt))
                 {
                     inputPlayerPrefs.Remove(pair.Key);
                     PlayerPrefs.DeleteKey(pair.Key);
                     PlayerPrefs.Save();
                 }
 
-                GUI.color = origColor;
+                GUI.backgroundColor = origBg;
                 EditorGUILayout.EndHorizontal();
             }
 
@@ -243,7 +300,6 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
                 EditorGUILayout.HelpBox(hint, MessageType.Info);
             }
 
-            GUI.color = origColor;
             GUI.backgroundColor = origBg;
             EditorGUILayout.EndScrollView();
         }
@@ -274,13 +330,7 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
             GUILayout.EndHorizontal();
         }
 
-        private void OnValueChanged(string key, string editedValue, string originalValueStr)
-        {
-            if (editedValue != originalValueStr)
-                inputPlayerPrefs[key] = editedValue;
-            else
-                inputPlayerPrefs.Remove(key);
-        }
+        // ──────────────── Data ────────────────
 
         private bool Save(string ppKey, object oldValue, string ppNewValue)
         {
@@ -345,6 +395,13 @@ namespace manhnd_sdk.Editor.PlayerPrefsEditor
                     return i;
             }
             return -1;
+        }
+
+        private void HandleScrollWheelBoost()
+        {
+            if (Event.current.type != EventType.ScrollWheel) return;
+            scrollPos += Event.current.delta * 20f;
+            Event.current.Use();
         }
 
         private void PurgeStaleDirtyEntries()

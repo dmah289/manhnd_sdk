@@ -29,6 +29,17 @@ namespace manhnd_sdk.EditorTool.Common
             public static GUIContent Trash;     // group/header X
             public static GUIContent TrashSmall; // root folder X (smaller scale)
 
+            // PlayerPrefs Editor — per-row icon buttons
+            public static GUIContent PrefsSave;
+            public static GUIContent PrefsRevert;
+            public static GUIContent PrefsDelete;
+            public static GUIContent PrefsJsonEdit;
+
+            // PlayerPrefs Editor — toolbar buttons (icon + text)
+            public static GUIContent PrefsSaveAll;
+            public static GUIContent PrefsRevertAll;
+            public static GUIContent PrefsDeleteAll;
+
             private static bool _iconsLoaded;
 
             public static void EnsureIcons()
@@ -39,12 +50,27 @@ namespace manhnd_sdk.EditorTool.Common
                 Refresh    = WithIcon("Refresh",            "Reload all groups and rescan build scenes", "↻");
                 Trash      = WithIcon("d_TreeEditor.Trash", "Remove",                                    "X");
                 TrashSmall = WithIcon("d_TreeEditor.Trash", "Remove",                                    "×");
+
+                PrefsSave     = WithIcon("d_SaveAs",           "Save",      "💾");
+                PrefsRevert   = WithIcon("d_RotateTool",       "Revert",    "↩");
+                PrefsDelete   = WithIcon("d_TreeEditor.Trash", "Delete",    "✕");
+                PrefsJsonEdit = WithIcon("d_UnityEditor.ConsoleWindow", "Edit JSON", "{ }");
+
+                PrefsSaveAll   = WithIconAndText("d_SaveAs",           " Save All",   "Save all modified entries");
+                PrefsRevertAll = WithIconAndText("d_RotateTool",       " Revert All", "Revert all changes");
+                PrefsDeleteAll = WithIconAndText("d_TreeEditor.Trash", " Delete All", "Delete all entries");
             }
 
             private static GUIContent WithIcon(string iconName, string tooltip, string textFallback)
             {
                 Texture image = EditorGUIUtility.IconContent(iconName)?.image;
                 return image != null ? new GUIContent(image, tooltip) : new GUIContent(textFallback, tooltip);
+            }
+
+            private static GUIContent WithIconAndText(string iconName, string text, string tooltip)
+            {
+                Texture image = EditorGUIUtility.IconContent(iconName)?.image;
+                return image != null ? new GUIContent(text, image, tooltip) : new GUIContent(text, tooltip);
             }
 
             // Dynamic label "Scene: <name>" with cached invalidation by current value.
