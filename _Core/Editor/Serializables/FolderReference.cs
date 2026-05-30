@@ -24,20 +24,21 @@ namespace manhnd_sdk.Serializables
 
         public FolderReference(string path) => Path = path;
 
-        public T[] LoadAssets<T>() where T : Object
+        public T[] LoadAssets<T>(bool loadRecursively = false) where T : Object
         {
             if (!IsValid)
                 return Array.Empty<T>();
 
             var guids = AssetDatabase.FindAssets($"t:{typeof(T).Name}", new[] { Path });
+            int rootDepth = loadRecursively ? -1 : Path.Split('/').Length;
 
             List<T> results = new();
-            string path;
             for (int i = 0; i < guids.Length; i++)
             {
-                path = AssetDatabase.GUIDToAssetPath(guids[i]);
-                if (!AssetDatabase.IsValidFolder(path))
-                    results.Add(AssetDatabase.LoadAssetAtPath<T>(path));
+                string assetPath = AssetDatabase.GUIDToAssetPath(guids[i]);
+                if (AssetDatabase.IsValidFolder(assetPath)) continue;
+                if (!loadRecursively && assetPath.Split('/').Length != rootDepth + 1) continue;
+                results.Add(AssetDatabase.LoadAssetAtPath<T>(assetPath));
             }
 
             return results.ToArray();
