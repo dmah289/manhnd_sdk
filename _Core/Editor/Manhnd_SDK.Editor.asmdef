@@ -1,6 +1,6 @@
 {
     "name": "Manhnd_SDK.Editor",
-    "rootNamespace": "Manhnd_SDK.Editor",
+    "rootNamespace": "manhnd_sdk.Editor",
     "references": [],
     "includePlatforms": [
         "Editor"
