@@ -5,7 +5,7 @@ namespace manhnd_sdk.Editor.Utility
 {
     public class MissingScriptCleaner : UnityEditor.Editor
     {
-        [MenuItem("manhnd/Utility/Clean Missing Scripts")]
+        [MenuItem("manhnd_sdk/Utility/Clean Missing Scripts")]
         public static void CleanMissingScripts()
         {
             GameObject[] selectedObjects = Selection.gameObjects;
