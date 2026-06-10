@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using Newtonsoft.Json;
+using Sirenix.OdinInspector;
 using UnityEngine;
 
 namespace manhnd_sdk.Runtime.RemoteConfigSystem
@@ -19,21 +20,23 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
     public class RCVariable<T> : IRCVariable
     {
         [SerializeField] private string firebaseKey;
-        [NonSerialized] private bool enableFetching;
+        [SerializeField] private bool enableFetching;
         [SerializeField] private T defaultValue;
         [SerializeField] private T fetchedValue;
-        
+        [SerializeField] private bool fetched;
 
         public string FirebaseKey => firebaseKey;
         public bool EnableFetching => enableFetching;
-
-        public T Value => enableFetching ? fetchedValue : defaultValue;
+        public T Value => fetched ? fetchedValue : defaultValue;
         
         
         public void Init()
         {
+            if (!enableFetching)
+                return;
+            
             string prefsVal = PlayerPrefs.GetString(firebaseKey, string.Empty);
-            fetchedValue = string.IsNullOrEmpty(prefsVal) ? defaultValue : GetValueFromString(prefsVal);
+            fetchedValue = string.IsNullOrEmpty(prefsVal) ? defaultValue : GetStandardValueFromString(prefsVal);
         }
 
         public void FetchValue()
@@ -41,10 +44,21 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
             if (!enableFetching)
                 return;
 
-            bool variableExists = IIRemoteConfigProvider.Service.TryGetStringValue(firebaseKey, out string fetchedVal);
+            bool exists = IIRemoteConfigProvider.Service.TryGetRemoteValue(firebaseKey, out string fetchedVal);
+            if (exists)
+            {
+                fetchedValue = GetStandardValueFromString(fetchedVal);
+                PlayerPrefs.SetString(firebaseKey, fetchedVal);
+                fetched = true;
+            }
+            // else
+            // {
+            //     string prefsVal = PlayerPrefs.GetString(firebaseKey, string.Empty);
+            //     fetchedValue = string.IsNullOrEmpty(prefsVal) ? defaultValue : GetStandardValueFromString(prefsVal);
+            // }
         }
 
-        public T GetValueFromString(string serializedVal)
+        public T GetStandardValueFromString(string serializedVal)
         {
             try
             {
@@ -72,5 +86,23 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
                 return default;
             }
         }
+        
+        #if UNITY_EDITOR
+        
+        [Button]
+        private void CopyJsonToClipboard()
+        {
+            string json = JsonConvert.SerializeObject(Value, Formatting.Indented);
+            GUIUtility.systemCopyBuffer = json;
+            Debug.Log($"Copied RCVariable with key {firebaseKey} to clipboard:\n{json}");
+        }
+
+        [Button]
+        private void ImportDefaultValue(string defaultVal)
+        {
+            defaultValue = GetStandardValueFromString(defaultVal);
+        }
+        
+        #endif
     }
 }

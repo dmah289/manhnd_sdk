@@ -1,7 +1,11 @@
-﻿namespace manhnd_sdk.Runtime.RemoteConfigSystem
+﻿using System;
+
+namespace manhnd_sdk.Runtime.RemoteConfigSystem
 {
     public interface IIRemoteConfigProvider : IService<IIRemoteConfigProvider>
     {
-        public bool TryGetStringValue(string firebaseKey, out string value);
+        public Action OnAllValueFetched { get; set; }
+        
+        public bool TryGetRemoteValue(string firebaseKey, out string value);
     }
 }
