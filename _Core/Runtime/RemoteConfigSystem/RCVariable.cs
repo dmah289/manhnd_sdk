@@ -32,16 +32,16 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
         
         public void Init()
         {
-            if (enableFetching)
-            {
-                string prefsVal = PlayerPrefs.GetString(firebaseKey, string.Empty);
-                fetchedValue = string.IsNullOrEmpty(prefsVal) ? defaultValue : JsonUtility.FromJson<T>(prefsVal);
-            }
+            string prefsVal = PlayerPrefs.GetString(firebaseKey, string.Empty);
+            fetchedValue = string.IsNullOrEmpty(prefsVal) ? defaultValue : GetValueFromString(prefsVal);
         }
 
         public void FetchValue()
         {
-            throw new NotImplementedException();
+            if (!enableFetching)
+                return;
+
+            bool variableExists = IIRemoteConfigProvider.Service.TryGetStringValue(firebaseKey, out string fetchedVal);
         }
 
         public T GetValueFromString(string serializedVal)
