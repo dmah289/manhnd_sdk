@@ -11,8 +11,8 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
     public interface IRCVariable
     {
         public string FirebaseKey { get;}
-        public bool AllowFetching { get; }
-        
+        public bool AllowFetching { get; set; }
+
         public void FetchValue();
     }
     
@@ -33,10 +33,14 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
         [SerializeField] private bool fetched;
 
         public string FirebaseKey => firebaseKey;
-        public bool AllowFetching => allowFetching;
+        public bool AllowFetching
+        {
+            get => allowFetching;
+            set => allowFetching = value;
+        }
         public T Value => value;
         
-        public static implicit operator T(RCVariable<T> variable) => variable.Value;
+        public static implicit operator T(RCVariable<T> variable) => variable != null ? variable.Value : default;
 
         public void FetchValue()
         {
@@ -44,50 +48,57 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
                 return;
 
             bool exists = IRemoteConfigProvider.Service.TryGetRemoteValue(firebaseKey, out string fetchedVal);
-            if (exists && !string.IsNullOrEmpty(fetchedVal))
+            if (exists && !string.IsNullOrEmpty(fetchedVal) && GetStandardValueFromString(fetchedVal, out T parsed))
             {
-                value = GetStandardValueFromString(fetchedVal);
+                value = parsed;
                 PlayerPrefs.SetString(firebaseKey, fetchedVal);
                 fetched = true;
 
                 return;
             }
-            
+
             Debug.LogError($"Can't find remote config value for key {firebaseKey}");
-            
+
             string prefsVal = PlayerPrefs.GetString(firebaseKey, string.Empty);
-            if(!string.IsNullOrEmpty(prefsVal))
-                value = GetStandardValueFromString(prefsVal);
-            else 
-                Debug.LogError($"Can't find remote config value for key {firebaseKey} in PlayerPrefs -> Using default value st on Editor");
+            if(!string.IsNullOrEmpty(prefsVal) && GetStandardValueFromString(prefsVal, out T cachedParsed))
+                value = cachedParsed;
+            else
+                Debug.LogError($"Can't find remote config value for key {firebaseKey} in PlayerPrefs -> Using default value set on Editor");
         }
 
-        public T GetStandardValueFromString(string serializedVal)
+        private bool GetStandardValueFromString(string serializedVal, out T result)
         {
             try
             {
                 if (typeof(T) == typeof(string))
-                    return (T)(object)serializedVal;
-
-                switch (Type.GetTypeCode(typeof(T)))
                 {
-                    case TypeCode.Int32:
-                        return (T)(object)int.Parse(serializedVal);
-                    case TypeCode.Boolean:
-                        return (T)(object)bool.Parse(serializedVal);
-                    case TypeCode.Single:
-                        // BẮT BUỘC dùng InvariantCulture để tránh lỗi dấu chấm/phẩy ở các quốc gia khác
-                        return (T)(object)float.Parse(serializedVal, CultureInfo.InvariantCulture);
-                    case TypeCode.Double:
-                        return (T)(object)double.Parse(serializedVal, CultureInfo.InvariantCulture);
-                    default:
-                        return JsonConvert.DeserializeObject<T>(serializedVal);
+                    result = (T)(object)serializedVal;
+                    return true;
                 }
+
+                if (typeof(T).IsEnum)
+                {
+                    result = (T)Enum.Parse(typeof(T), serializedVal);
+                    return true;
+                }
+
+                result = Type.GetTypeCode(typeof(T)) switch
+                {
+                    TypeCode.Int32 => (T)(object)int.Parse(serializedVal),
+                    TypeCode.Boolean => (T)(object)bool.Parse(serializedVal),
+                    // BẮT BUỘC dùng InvariantCulture để tránh lỗi dấu chấm/phẩy ở các quốc gia khác
+                    TypeCode.Single => (T)(object)float.Parse(serializedVal, CultureInfo.InvariantCulture),
+                    TypeCode.Double => (T)(object)double.Parse(serializedVal, CultureInfo.InvariantCulture),
+                    TypeCode.Int64 => (T)(object)long.Parse(serializedVal),
+                    _ => JsonConvert.DeserializeObject<T>(serializedVal),
+                };
+                return true;
             }
             catch
             {
                 Debug.LogError($"Can't parse remote config value for key {firebaseKey} with value {serializedVal} to type {typeof(T)}");
-                return default;
+                result = default;
+                return false;
             }
         }
         
@@ -104,8 +115,8 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
         [Button]
         private void ImportDefaultValue(string defaultVal)
         {
-            if(!string.IsNullOrEmpty(defaultVal))
-                value = GetStandardValueFromString(defaultVal);
+            if(!string.IsNullOrEmpty(defaultVal) && GetStandardValueFromString(defaultVal, out T parsed))
+                value = parsed;
         }
         
         #endif

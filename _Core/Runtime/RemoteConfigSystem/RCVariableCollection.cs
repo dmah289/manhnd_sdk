@@ -15,15 +15,26 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
     public partial class RCVariableCollection : SingletonSO<RCVariableCollection>
     {
         List<IRCVariable> rcVariables = new();
+        List<FieldInfo> cachedRCFields;
+
+        private List<FieldInfo> GetRCFields()
+        {
+            return cachedRCFields ??= GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(field => field.IsDefined(typeof(RegisteredRCVar), false)).ToList();
+        }
 
         public void Initialize()
         {
-            List<FieldInfo> rcFields = GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .Where(field => field.IsDefined(typeof(RegisteredRCVar), false)).ToList();
+            if (IRemoteConfigProvider.TryGet(out var provider))
+                provider.OnFetching -= OnRemoteConfigFetching;
+
+            rcVariables.Clear();
+
+            List<FieldInfo> rcFields = GetRCFields();
 
             for (int i = 0; i < rcFields.Count; i++)
                 rcVariables.Add((IRCVariable)rcFields[i].GetValue(this));
-            
+
             IRemoteConfigProvider.Service.OnFetching += OnRemoteConfigFetching;
         }
 
@@ -32,15 +43,20 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
             for(int i = 0; i < rcVariables.Count; i++)
                 rcVariables[i].FetchValue();
         }
-        
-        #if UNITY_EDITOR
+
+        private void OnDestroy()
+        {
+            if (IRemoteConfigProvider.TryGet(out var provider))
+                provider.OnFetching -= OnRemoteConfigFetching;
+        }
+
+#if UNITY_EDITOR
         [Button]
         [GUIColor("cyan")]
         public void SearchFirebaseKeyUsage(string firebaseKey)
         {
-            List<FieldInfo> rcFields = GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-                .Where(field => field.IsDefined(typeof(RegisteredRCVar), false)).ToList();
-            
+            List<FieldInfo> rcFields = GetRCFields();
+
             for(int i = 0; i < rcFields.Count; i++)
             {
                 IRCVariable variable = (IRCVariable)rcFields[i].GetValue(this);
@@ -51,6 +67,21 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
                 }
             }
         }
-        #endif
+
+        [Button]
+        [GUIColor("green")]
+        private void EnableAllFetching()
+        {
+            List<FieldInfo> rcFields = GetRCFields();
+
+            for (int i = 0; i < rcFields.Count; i++)
+            {
+                IRCVariable variable = (IRCVariable)rcFields[i].GetValue(this);
+                variable.AllowFetching = true;
+            }
+
+            Debug.Log($"Enabled allowFetching on {rcFields.Count} RCVariables");
+        }
+#endif
     }
 }
