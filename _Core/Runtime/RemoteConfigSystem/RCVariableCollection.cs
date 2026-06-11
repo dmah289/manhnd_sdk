@@ -40,6 +40,7 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
                 if (provider.IsFetched)
                     OnRemoteConfigFetched();
             }
+            else Debug.LogError("No IRemoteConfigProvider found in the scene. Please make sure to have one in order to fetch remote config values.");
         }
 
         private void OnRemoteConfigFetched()

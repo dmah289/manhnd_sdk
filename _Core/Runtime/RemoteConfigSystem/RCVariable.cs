@@ -20,7 +20,7 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
     public class RCVariable<T> : IRCVariable
     {
         [SerializeField] private string firebaseKey;
-        [SerializeField] private bool allowFetching;
+        [SerializeField] private bool allowFetching = true;
         [SerializeField] private T value;
         [SerializeField] private bool fetched;
 
