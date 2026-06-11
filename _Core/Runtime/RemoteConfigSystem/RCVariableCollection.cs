@@ -14,8 +14,9 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
     [CreateAssetMenu(menuName = "manhnd_sdk/RCVariableCollection", fileName = "RCVariableCollection")]
     public partial class RCVariableCollection : SingletonSO<RCVariableCollection>
     {
-        List<IRCVariable> rcVariables = new();
-        List<FieldInfo> cachedRCFields;
+        private List<IRCVariable> rcVariables = new();
+        private List<FieldInfo> cachedRCFields;
+        private IRemoteConfigProvider provider;
 
         private List<FieldInfo> GetRCFields()
         {
@@ -25,29 +26,32 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
 
         public void Initialize()
         {
-            if (IRemoteConfigProvider.TryGet(out var provider))
-                provider.OnFetching -= OnRemoteConfigFetching;
-
             rcVariables.Clear();
-
             List<FieldInfo> rcFields = GetRCFields();
 
             for (int i = 0; i < rcFields.Count; i++)
                 rcVariables.Add((IRCVariable)rcFields[i].GetValue(this));
 
-            IRemoteConfigProvider.Service.OnFetching += OnRemoteConfigFetching;
+            if (IRemoteConfigProvider.TryGet(out provider))
+            {
+                provider.OnFetched -= OnRemoteConfigFetched;
+                provider.OnFetched += OnRemoteConfigFetched;
+
+                if (provider.IsFetched)
+                    OnRemoteConfigFetched();
+            }
         }
 
-        private void OnRemoteConfigFetching()
+        private void OnRemoteConfigFetched()
         {
             for(int i = 0; i < rcVariables.Count; i++)
-                rcVariables[i].FetchValue();
+                rcVariables[i].ApplyRemoteValue(provider);
         }
 
         private void OnDestroy()
         {
-            if (IRemoteConfigProvider.TryGet(out var provider))
-                provider.OnFetching -= OnRemoteConfigFetching;
+            if (provider != null)
+                provider.OnFetched -= OnRemoteConfigFetched;
         }
 
 #if UNITY_EDITOR

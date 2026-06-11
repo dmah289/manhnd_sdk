@@ -1,6 +1,20 @@
 # Remote Config System
 
-Quản lý biến cấu hình từ xa, hỗ trợ fetch từ server, cache offline, fallback về mặc định.
+## Flow
+
+```
+Provider fetch xong
+└── fire OnFetched
+    └── RCVariableCollection.OnRemoteConfigFetched()
+        ├── RCVariable<int>.ApplyRemoteValue(provider)
+        │   └── provider.TryGetRemoteValue(key) → parse → cache PlayerPrefs
+        └── RCVariable<T>.ApplyRemoteValue(provider)
+            └── ...
+```
+
+Thứ tự khởi tạo không quan trọng nhờ `IsFetched`:
+- Collection init trước → subscribe event → đợi provider fire
+- Provider init trước → Collection init sau → thấy `IsFetched == true` → fetch ngay
 
 ## Thứ tự ưu tiên lấy giá trị
 
@@ -18,12 +32,32 @@ Giá trị chỉ cache vào PlayerPrefs khi parse thành công. Remote trả sai
 
 ## Kiểu hỗ trợ
 
-`string`, `int`, `long`, `bool`, `float`, `double` (InvariantCulture), `enum` (tên hoặc số), kiểu khác qua `JsonConvert`.
+`string`, `int`, `long`, `bool`, `float`, `double` (InvariantCulture), `enum` (tên hoặc số), kiểu phức tạp qua `JsonConvert`.
 
 ## Cách dùng
 
+### 1. Triển khai provider (game project)
+
 ```csharp
-// 1. Khai báo biến trong partial class
+public class FirebaseRemoteConfigProvider : IRemoteConfigProvider
+{
+    public event Action OnFetched;
+    public bool IsFetched { get; private set; }
+
+    public bool TryGetRemoteValue(string firebaseKey, out string value) { /* ... */ }
+
+    public async UniTask FetchAsync()
+    {
+        // ... fetch từ Firebase Remote Config
+        IsFetched = true;
+        OnFetched?.Invoke();
+    }
+}
+```
+
+### 2. Khai báo biến (partial class)
+
+```csharp
 public partial class RCVariableCollection
 {
     [RegisteredRCVar]
@@ -31,19 +65,37 @@ public partial class RCVariableCollection
 
     public RCVariable<int> MaxRetryCount => maxRetryCount;
 }
-
-// 2. Khởi tạo
-RCVariableCollection.Instance.Initialize();
-
-// 3. Đọc giá trị (implicit operator hoặc .Value)
-int max = RCVariableCollection.Instance.MaxRetryCount;
 ```
+
+### 3. Khởi tạo (thứ tự tùy ý)
+
+```csharp
+RCVariableCollection.Instance.Initialize();
+FirebaseRemoteConfigProvider.Initialize(); // → OnFetched?.Invoke()
+```
+
+### 4. Đọc giá trị
+
+```csharp
+int max = RCVariableCollection.Instance.MaxRetryCount;          // implicit operator
+int max = RCVariableCollection.Instance.MaxRetryCount.Value;    // explicit
+```
+
+## Cấu trúc file
+
+| File | Vai trò |
+|------|---------|
+| `IRemoteConfigProvider.cs` | Interface cho provider — `OnFetched`, `IsFetched`, `TryGetRemoteValue` |
+| `RCVariable.cs` | `IRCVariable` interface + `RCVariable<T>` — giữ giá trị, parse, cache |
+| `RCVariableCollection.cs` | ScriptableObject singleton — thu thập `[RegisteredRCVar]`, subscribe event, điều phối fetch |
 
 ## Inspector (mỗi RCVariable)
 
-- **firebaseKey** — Key trên Remote Config server
-- **allowFetching** — Bật/tắt fetch từ remote
-- **value** — Giá trị mặc định
+| Field | Mô tả |
+|-------|-------|
+| `firebaseKey` | Key trên Remote Config server |
+| `allowFetching` | Bật/tắt fetch từ remote |
+| `value` | Giá trị mặc định (dùng khi remote + cache đều fail) |
 
 ## Editor Tools
 

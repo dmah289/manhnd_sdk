@@ -13,17 +13,9 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
         public string FirebaseKey { get;}
         public bool AllowFetching { get; set; }
 
-        public void FetchValue();
+        public void ApplyRemoteValue(IRemoteConfigProvider provider);
     }
     
-    /// <summary>
-    /// If not allowFetching, value will be set on editor.
-    /// if allowFetching is true:
-    ///    + Try to fetch value from remote config provider -> cache it to PlayerPrefs.
-    ///    + If not success, try to fetch value from PlayerPrefs
-    ///    + If not success, use default value set on editor.
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
     [Serializable]
     public class RCVariable<T> : IRCVariable
     {
@@ -42,13 +34,13 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
         
         public static implicit operator T(RCVariable<T> variable) => variable != null ? variable.Value : default;
 
-        public void FetchValue()
+        public void ApplyRemoteValue(IRemoteConfigProvider provider)
         {
             if (!allowFetching)
                 return;
 
-            bool exists = IRemoteConfigProvider.Service.TryGetRemoteValue(firebaseKey, out string fetchedVal);
-            if (exists && !string.IsNullOrEmpty(fetchedVal) && GetStandardValueFromString(fetchedVal, out T parsed))
+            bool exists = provider.TryGetRemoteValue(firebaseKey, out string fetchedVal);
+            if (exists && !string.IsNullOrEmpty(fetchedVal) && TryParseValueFromString(fetchedVal, out T parsed))
             {
                 value = parsed;
                 PlayerPrefs.SetString(firebaseKey, fetchedVal);
@@ -57,16 +49,21 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
                 return;
             }
 
-            Debug.LogError($"Can't find remote config value for key {firebaseKey}");
+            if(!exists)
+                Debug.LogError($"Can't find remote config value for key {firebaseKey}");
+            else if(string.IsNullOrEmpty(fetchedVal))
+                Debug.LogError($"Remote config value for key {firebaseKey} is empty");
+            else
+                Debug.LogError($"Can't parse remote config value for key {firebaseKey} with value {fetchedVal} to type {typeof(T)} -> Using cached value in PlayerPrefs");
 
             string prefsVal = PlayerPrefs.GetString(firebaseKey, string.Empty);
-            if(!string.IsNullOrEmpty(prefsVal) && GetStandardValueFromString(prefsVal, out T cachedParsed))
+            if(!string.IsNullOrEmpty(prefsVal) && TryParseValueFromString(prefsVal, out T cachedParsed))
                 value = cachedParsed;
             else
-                Debug.LogError($"Can't find remote config value for key {firebaseKey} in PlayerPrefs -> Using default value set on Editor");
+                Debug.LogError($"Can't find remote config prefs value for key {firebaseKey} -> Using default value set on Editor");
         }
 
-        private bool GetStandardValueFromString(string serializedVal, out T result)
+        private bool TryParseValueFromString(string serializedVal, out T result)
         {
             try
             {
@@ -115,7 +112,7 @@ namespace manhnd_sdk.Runtime.RemoteConfigSystem
         [Button]
         private void ImportDefaultValue(string defaultVal)
         {
-            if(!string.IsNullOrEmpty(defaultVal) && GetStandardValueFromString(defaultVal, out T parsed))
+            if(!string.IsNullOrEmpty(defaultVal) && TryParseValueFromString(defaultVal, out T parsed))
                 value = parsed;
         }
         
