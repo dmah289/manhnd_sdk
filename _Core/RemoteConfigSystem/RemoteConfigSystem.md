@@ -83,11 +83,16 @@ int max = RCVariableCollection.Instance.MaxRetryCount.Value;    // explicit
 
 ## Cấu trúc file
 
-| File | Vai trò |
-|------|---------|
-| `IRemoteConfigProvider.cs` | Interface cho provider — `OnFetched`, `IsFetched`, `TryGetRemoteValue` |
-| `RCVariable.cs` | `IRCVariable` interface + `RCVariable<T>` — giữ giá trị, parse, cache |
-| `RCVariableCollection.cs` | ScriptableObject singleton — thu thập `[RegisteredRCVar]`, subscribe event, điều phối fetch |
+```
+_Core/RemoteConfigSystem/              (contracts)
+├── IRemoteConfigProvider.cs           Interface cho provider — OnFetched, IsFetched, TryGetRemoteValue
+├── IRCVariable.cs                     Interface cho biến — FirebaseKey, AllowFetching, ApplyRemoteValue
+└── IRCVariableCollection.cs           Interface cho collection — RCVariables, RemoteConfigProvider, Initialize
+
+_Module/RemoteConfigSystem/            (implementations)
+├── RCVariable.cs                      RCVariable<T> — giữ giá trị, parse, cache PlayerPrefs
+└── RCVariableCollection.cs            ScriptableObject singleton — thu thập [RegisteredRCVar], subscribe event, điều phối apply
+```
 
 ## Inspector (mỗi RCVariable)
 

@@ -1,21 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
+using manhnd_sdk.Runtime.RemoteConfigSystem;
 using Newtonsoft.Json;
 using Sirenix.OdinInspector;
 using UnityEngine;
-using UnityEngine.Serialization;
 
-namespace manhnd_sdk.Runtime.RemoteConfigSystem
+namespace manhnd_sdk.Module.RemoteConfigSystem
 {
-    public interface IRCVariable
-    {
-        public string FirebaseKey { get;}
-        public bool AllowFetching { get; set; }
-
-        public void ApplyRemoteValue(IRemoteConfigProvider provider);
-    }
-    
     [Serializable]
     public class RCVariable<T> : IRCVariable
     {

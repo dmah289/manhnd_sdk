@@ -2,21 +2,27 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using manhnd_sdk.Runtime.RemoteConfigSystem;
 using manhnd_sdk.Runtime.SystemDesign;
 using Sirenix.OdinInspector;
+using Sisus.Init;
 using UnityEngine;
 
-namespace manhnd_sdk.Runtime.RemoteConfigSystem
+namespace manhnd_sdk.Module.RemoteConfigSystem
 {
     [AttributeUsage(AttributeTargets.Field)]
     public sealed class RegisteredRCVar : Attribute { }
     
+    [Service(typeof(IRCVariableCollection))]
     [CreateAssetMenu(menuName = "manhnd_sdk/RCVariableCollection", fileName = "RCVariableCollection")]
-    public partial class RCVariableCollection : SingletonSO<RCVariableCollection>
+    public partial class RCVariableCollection : SingletonSO<RCVariableCollection>, IRCVariableCollection
     {
         private List<IRCVariable> rcVariables = new();
         private List<FieldInfo> cachedRCFields;
         private IRemoteConfigProvider provider;
+        
+        public IEnumerable<IRCVariable> RCVariables => rcVariables;
+        public IRemoteConfigProvider RemoteConfigProvider => provider;
 
         private List<FieldInfo> GetRCFields()
         {
